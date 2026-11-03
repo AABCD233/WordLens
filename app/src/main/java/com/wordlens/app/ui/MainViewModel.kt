@@ -11,6 +11,7 @@ import com.wordlens.app.data.db.SavedWord
 import com.wordlens.app.data.model.Definition
 import com.wordlens.app.data.model.OcrResult
 import com.wordlens.app.data.settings.Settings
+import com.wordlens.app.data.tts.TtsEngine
 import com.wordlens.app.data.model.WordNormalizer
 import com.wordlens.app.util.ImageFiles
 import com.wordlens.app.util.OcrCodec
@@ -230,10 +231,19 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun speakCurrent() {
         val w = _word.value.definition?.lemma ?: _word.value.query
-        app.tts.speak(w, settings.value.speechRate)
+        speak(w)
     }
 
-    fun speak(text: String) = app.tts.speak(text, settings.value.speechRate)
+    fun speak(text: String) {
+        val ok = app.tts.speak(text, settings.value.speechRate)
+        if (!ok) {
+            _messages.tryEmit(
+                if (ttsState.value == TtsEngine.State.UNAVAILABLE)
+                    "这台手机没有可用的英文语音。去「系统设置 → 无障碍 → 文字转语音」装一个英文引擎再试"
+                else "语音还没准备好，稍等一下再点一次"
+            )
+        }
+    }
 
     fun requestAiExplain() {
         val current = _word.value

@@ -1,6 +1,7 @@
 package com.wordlens.app.data.tts
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -33,6 +34,15 @@ class TtsEngine(context: Context) {
     private fun handleInit(status: Int) {
         val engine = tts ?: return
         if (status == TextToSpeech.SUCCESS) {
+            // 按「媒体」播，静音模式下也能听到（语音类 App 的常规做法）
+            runCatching {
+                engine.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+            }
             val ok = setLang(engine, Locale.UK) || setLang(engine, Locale.US)
             _state.value = if (ok) State.READY else State.UNAVAILABLE
         } else {
@@ -45,15 +55,20 @@ class TtsEngine(context: Context) {
         return r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED
     }
 
-    fun speak(text: String, rate: Float = 1.0f) {
-        if (_state.value != State.READY) return
-        val engine = tts ?: return
+    /**
+     * 朗读。返回 false 表示没念出来（没装英文语音 / 引擎还没就绪），
+     * 由调用方给出提示 —— 以前这里静默 return，用户点了完全没反应。
+     */
+    fun speak(text: String, rate: Float = 1.0f): Boolean {
+        val engine = tts ?: return false
+        if (_state.value != State.READY) return false
         val clean = text.trim()
-        if (clean.isEmpty()) return
-        runCatching {
+        if (clean.isEmpty()) return false
+        return runCatching {
             engine.setSpeechRate(rate.coerceIn(0.5f, 2.0f))
-            engine.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "wordlens_${System.currentTimeMillis()}")
-        }
+            engine.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "wordlens_${System.currentTimeMillis()}") ==
+                TextToSpeech.SUCCESS
+        }.getOrDefault(false)
     }
 
     fun shutdown() {

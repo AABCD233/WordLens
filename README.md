@@ -7,7 +7,26 @@
 - minSdk 26（Android 8.0+）· Kotlin + Jetpack Compose · 单模块 `:app`
 - 识别：ML Kit Text Recognition v2（bundled，无需 Google Play 服务下载模型、无需联网）
 - 词典：内置离线英汉词典 **114,247 词 / 23.7 MB**（数据源 [ECDICT](https://github.com/skywind3000/ECDICT)，MIT）
-- 可选增强：免费英文词典 API、机器翻译兜底、你自己的 OpenAI 兼容接口（AI 详解）
+- 词典包可换：设置里可一键下载 **全量包 760,613 词 / 84.6 MB**（装进手机 37 MB 的 gz），也能填任意自制包地址
+- 翻译：全文翻译 + 例句翻译，引擎可切 **MyMemory / AI / 有道智云 / 百度 / 必应(Azure) / Google**
+- 可选增强：免费英文词典 API、有道在线补中文、你自己的 OpenAI 兼容接口（AI 详解）
+
+---
+
+## 零、词库不够用？换词典包
+
+设置 → 离线词典 → 词典包：
+
+| 包 | 词数 | 体积 | 来源 |
+| --- | --- | --- | --- |
+| 内置核心词典 | 114,247 | 随 APK（23.7 MB） | assets/dict.db |
+| 官方全量词典包 | 760,613 | 下载 37 MB，占 84.6 MB | [Releases › dict-v1](https://github.com/AABCD233/WordLens/releases/tag/dict-v1) |
+
+点「填入官方地址」→「下载并切换」就行，装完立刻生效，不用重装 APK。
+也可以填任何你自己生成的 `dict.db` / `dict.db.gz` 地址（生成方法见 `data/dict/README.md`）。
+
+切换是热切换：`DictStore.usePack()` 关掉旧句柄、打开新文件，不用重启 App。
+扩展包也可以随时删掉，删掉后自动回到内置包。
 
 ---
 
@@ -35,7 +54,8 @@
    ```
    workflow 会自动建 Release 并把 APK 附在 Releases 里。
 
-> Workflow 里会先跑 `:app:testDebugUnitTest`（纯逻辑单测），再 `assembleDebug`。
+> Workflow 里先 `assembleDebug` 上传 APK，再跑 `:app:testDebugUnitTest`（纯逻辑单测）。
+> 这样万一某个断言挂了，包也已经在 Artifacts 里，不影响你安装。
 > 用的是 JDK 17 + Gradle 8.14.6（wrapper 已在仓库里）。
 
 ## 二、用 Android Studio 编译
