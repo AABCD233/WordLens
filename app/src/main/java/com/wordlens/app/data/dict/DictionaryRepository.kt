@@ -3,8 +3,7 @@ package com.wordlens.app.data.dict
 import com.wordlens.app.data.db.AppDatabase
 import com.wordlens.app.data.db.DictStore
 import com.wordlens.app.data.model.Definition
-import com.wordlens.app.data.model.EnDefinition
-import com.wordlens.app.data.model.EnMeaning
+import com.wordlens.app.data.model.DictText
 import com.wordlens.app.data.model.WordNormalizer
 import com.wordlens.app.data.settings.AppSettings
 import com.wordlens.app.data.db.DictStatus
@@ -47,9 +46,9 @@ class DictionaryRepository(
                 matchedOffline = true,
                 lemmaIsExact = offlineHit.isOriginal,
                 phonetic = offlineHit.row.phonetic.ifBlank { null },
-                zhLines = offlineHit.row.translation.split('\n').filter { it.isNotBlank() },
-                enMeanings = enMeaningsFromOffline(offlineHit.row.definition),
-                inflections = inflections(offlineHit.row.exchange),
+                zhLines = DictText.zhLines(offlineHit.row.translation),
+                enMeanings = DictText.enMeanings(offlineHit.row.definition),
+                inflections = DictText.inflections(offlineHit.row.exchange),
                 tags = tagNames(offlineHit.row.tag),
                 collins = offlineHit.row.collins,
                 oxford = offlineHit.row.oxford == 1,
@@ -92,43 +91,6 @@ class DictionaryRepository(
     suspend fun dictWordCount(): Int = runCatching { dictStore.totalWords() }.getOrDefault(0)
 
     // ---------- helpers ----------
-
-    /** ECDICT 的 definition 是英文释义文本，按分号/换行切成词性 + 释义 */
-    private fun enMeaningsFromOffline(raw: String): List<EnMeaning> {
-        if (raw.isBlank()) return emptyList()
-        val parts = raw.split('\n').map { it.trim() }.filter { it.isNotBlank() }
-        if (parts.isEmpty()) return emptyList()
-        // 无法可靠切词性，统一归到「English」一栏展示
-        return listOf(EnMeaning(partOfSpeech = "english", definitions = parts.map { EnDefinition(text = it) }))
-    }
-
-    /** exchange 形如 "p:studied|d:studied|i:studying|3:studies|s:studies|0:study" */
-    private fun inflections(exchange: String): List<String> {
-        if (exchange.isBlank()) return emptyList()
-        val out = ArrayList<String>(6)
-        for (pair in exchange.split('|')) {
-            val idx = pair.indexOf(':')
-            if (idx <= 0) continue
-            val key = pair.substring(0, idx).trim()
-            val value = pair.substring(idx + 1).trim()
-            if (value.isEmpty()) continue
-            val label = when (key) {
-                "0" -> "原形"
-                "1" -> "变形"
-                "2" -> "变形"
-                "3" -> "三单"
-                "p" -> "过去式"
-                "d" -> "过去分词"
-                "i" -> "现在分词"
-                "s" -> "复数"
-                "r" -> "比较级"
-                "t" -> "最高级"
-                else -> null
-            } ?: continue
-            out += "$label $value"
-        }
-        return out.distinct()
-    }
 
     private val TAG_ZH = mapOf(
         "zk" to "中考", "gk" to "高考", "cet4" to "四级", "cet6" to "六级", "ky" to "考研",

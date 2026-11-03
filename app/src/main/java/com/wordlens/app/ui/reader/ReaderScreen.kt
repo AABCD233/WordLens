@@ -338,11 +338,20 @@ private fun ImageWordView(
                     val top = token.bounds.top.toFloat() * scale
                     val w = token.bounds.width.toFloat() * scale
                     val h = token.bounds.height.toFloat() * scale
+                    // 框要够显眼：平常态 1.6dp 半透明 + 浅色描边打底，选中态 3dp 实色
+                    val strokeWidth = if (isActive) 3.dp.toPx() else 1.6.dp.toPx()
+                    if (!isActive) {
+                        drawRect(
+                            color = Color(0x33FFFFFF),
+                            topLeft = Offset(left, top),
+                            size = Size(w, h)
+                        )
+                    }
                     drawRect(
-                        color = if (isActive) Color(0xFFE8A33D) else Color(0x3D00BFA5),
+                        color = if (isActive) Color(0xFFE8A33D) else Color(0xA6009E8C),
                         topLeft = Offset(left, top),
                         size = Size(w, h),
-                        style = Stroke(width = if (isActive) 3f else 1f)
+                        style = Stroke(width = strokeWidth)
                     )
                 }
             }

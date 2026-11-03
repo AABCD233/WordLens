@@ -25,11 +25,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -157,14 +160,7 @@ private fun DefinitionBody(
     // 中文释义
     if (def.zhLines.isNotEmpty()) {
         SectionTitle("释义")
-        def.zhLines.forEach { line ->
-            Text(
-                line,
-                style = MaterialTheme.typography.bodyLarge,
-                lineHeight = 24.sp,
-                modifier = Modifier.padding(vertical = 1.dp)
-            )
-        }
+        def.zhLines.forEach { line -> ZhLine(line) }
     } else if (def.zhMachine != null) {
         SectionTitle("机器翻译")
         Text(
@@ -184,15 +180,30 @@ private fun DefinitionBody(
     // 英文释义 + 例句
     if (def.enMeanings.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
-        SectionTitle("English")
+        SectionTitle("英文释义")
         def.enMeanings.take(3).forEach { meaning ->
-            Text(
-                meaning.partOfSpeech,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.secondary,
-                fontStyle = FontStyle.Italic
-            )
-            meaning.definitions.take(3).forEach { d ->
+            val posZh = posChinese(meaning.partOfSpeech)
+            if (meaning.partOfSpeech.isNotBlank() || posZh.isNotBlank()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (meaning.partOfSpeech.isNotBlank()) {
+                        Text(
+                            meaning.partOfSpeech,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (posZh.isNotBlank()) {
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            posZh,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            meaning.definitions.take(4).forEach { d ->
                 Text(
                     "· ${d.text}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -300,6 +311,58 @@ private fun DefinitionBody(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+/** 中文释义里的词性前缀正则：允许前面挂 `(abnormal 的复数)` 这种注释 */
+private val POS_PREFIX = Regex(
+    "^((?:[(（][^)）]*[)）]\\s*)*)((adj|adv|abbr|prep|conj|pron|num|art|int|aux|pl|vt|vi|ad|n|v|a)\\.)",
+    RegexOption.IGNORE_CASE
+)
+
+@Composable
+private fun ZhLine(line: String) {
+    val accent = MaterialTheme.colorScheme.secondary
+    val annotated = remember(line, accent) {
+        val m = POS_PREFIX.find(line)
+        if (m == null) {
+            AnnotatedString(line)
+        } else {
+            val start = m.range.first + m.groupValues[1].length
+            val end = start + m.groupValues[2].length  // 含结尾的点
+            buildAnnotatedString {
+                append(line)
+                if (end <= line.length) {
+                    addStyle(SpanStyle(color = accent, fontWeight = FontWeight.SemiBold), start, end)
+                }
+            }
+        }
+    }
+    Text(
+        annotated,
+        style = MaterialTheme.typography.bodyLarge,
+        lineHeight = 24.sp,
+        modifier = Modifier.padding(vertical = 1.dp)
+    )
+}
+
+/** 词性代码 -> 中文，给不熟缩写的学习者看 */
+private fun posChinese(code: String): String = when (code.trim().lowercase()) {
+    "n." -> "名词"
+    "v." -> "动词"
+    "vt." -> "及物动词"
+    "vi." -> "不及物动词"
+    "adj." -> "形容词"
+    "adv." -> "副词"
+    "prep." -> "介词"
+    "conj." -> "连词"
+    "pron." -> "代词"
+    "num." -> "数词"
+    "art." -> "冠词"
+    "int." -> "感叹词"
+    "aux." -> "助动词"
+    "abbr." -> "缩写"
+    "pl." -> "复数"
+    else -> ""
 }
 
 @Composable
