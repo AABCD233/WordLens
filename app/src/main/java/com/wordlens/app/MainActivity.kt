@@ -1,0 +1,67 @@
+package com.wordlens.app
+
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.wordlens.app.ui.MainViewModel
+import com.wordlens.app.ui.RootScreen
+import com.wordlens.app.ui.theme.WordLensTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+class MainActivity : ComponentActivity() {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var mainViewModel: MainViewModel? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        val container = (application as WordLensApp).container
+        val factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                MainViewModel(container) as T
+        }
+        val viewModel: MainViewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
+        mainViewModel = viewModel
+
+        setContent {
+            WordLensTheme {
+                RootScreen(viewModel)
+            }
+        }
+
+        handleSharedImage(intent, viewModel)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        mainViewModel?.let { handleSharedImage(intent, it) }
+    }
+
+    /** 从相册/文件「分享 → 词镜」进来时，直接识别这张图 */
+    private fun handleSharedImage(intent: Intent?, vm: MainViewModel) {
+        val uri: Uri? = when (intent?.action) {
+            Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            Intent.ACTION_VIEW -> intent.data
+            else -> null
+        }
+        val type = intent?.type ?: return
+        if (uri == null || !type.startsWith("image/")) return
+        scope.launch {
+            val file = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                com.wordlens.app.util.ImageFiles.copyIntoApp(this@MainActivity, uri)
+            }
+            vm.analyzeImage(uri, file)
+        }
+    }
+}

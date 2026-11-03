@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">词镜</string>
+    <string name="tab_capture">拍照读词</string>
+    <string name="tab_wordbook">生词本</string>
+    <string name="tab_settings">设置</string>
+
+    <string name="perm_camera_title">需要相机权限</string>
+    <string name="perm_camera_body">拍照识别英文需要用到相机。也可以在首页用「相册」按钮直接选已有的照片。</string>
+    <string name="perm_grant">去授权</string>
+    <string name="perm_cancel">先不用</string>
+
+    <string name="action_capture">拍照</string>
+    <string name="action_gallery">从相册选图</string>
+    <string name="action_flip">翻转镜头</string>
+    <string name="action_retry">重试</string>
+    <string name="action_back">返回</string>
+    <string name="action_save_word">加入生词本</string>
+    <string name="action_speak">朗读</string>
+    <string name="action_copy">复制</string>
+    <string name="action_ai_explain">AI 详解</string>
+    <string name="action_review">开始复习</string>
+    <string name="action_delete">删除</string>
+
+    <string name="hint_ocr_working">正在识别文字…</string>
+    <string name="hint_ocr_empty">没识别到英文文字。试试对焦更近、光线更亮，或让纸面平整一些。</string>
+    <string name="hint_loading">加载中…</string>
+    <string name="hint_dict_preparing">正在准备离线词典…</string>
+    <string name="hint_no_result">词典里没有这个词，可开启在线补充或 AI 详解。</string>
+
+    <string name="mode_words">单词视图</string>
+    <string name="mode_image">原图对照</string>
+    <string name="mode_text">纯文本</string>
+</resources>
