@@ -37,7 +37,8 @@ class OcrCodecTest {
         val tricky = decoded.words[1]
         assertEquals("a|b&c~d\\e", tricky.text)
         assertEquals(Bounds(85, 20, 160, 40), tricky.bounds)
-        assertEquals(1, tricky.lineIndex)
+        assertEquals(0, tricky.lineIndex)   // 它属于第一行
+        assertEquals(1, tricky.order)       // 行内第 2 个词
         assertEquals(3, decoded.wordCount)
     }
 

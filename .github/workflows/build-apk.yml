@@ -33,9 +33,6 @@ jobs:
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
-      - name: Unit-test the pure-Kotlin logic
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
-
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
 
@@ -45,12 +42,16 @@ jobs:
           find app/build/outputs/apk -name '*.apk' -exec cp {} out/ \;
           ls -lh out
 
+      # 先上传 APK 再跑单测：万一某个断言不过，包也已经在 artifacts 里了
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: wordlens-debug-apk
           path: out/*.apk
           retention-days: 30
+
+      - name: Unit-test the pure-Kotlin logic
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       # 打 tag 时顺手创建 Release，手机上点一下就能下载安装
       - name: Attach APK to release
