@@ -49,14 +49,15 @@ object OcrCodec {
         for (i in 3 until parts.size) {
             val chunk = parts[i]
             if (chunk.isEmpty()) continue
-            val lineParts = chunk.split('~')
+            // 只切三段：词列表里每个词也是 "l,t,r,b~文本"，用无上限的 split 会把它切碎
+            val lineParts = chunk.split('~', limit = 3)
             if (lineParts.size < 2) continue
             val box = parseBox(lineParts[0]) ?: continue
             val text = unescape(lineParts[1])
             val words = ArrayList<OcrWord>()
             if (lineParts.size >= 3 && lineParts[2].isNotEmpty()) {
                 lineParts[2].split('&').forEachIndexed { idx, token ->
-                    val wp = token.split('~')
+                    val wp = token.split('~', limit = 2)
                     if (wp.size < 2) return@forEachIndexed
                     val wb = parseBox(wp[0]) ?: return@forEachIndexed
                     words += OcrWord(

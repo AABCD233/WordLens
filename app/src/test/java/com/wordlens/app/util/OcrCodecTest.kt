@@ -38,7 +38,7 @@ class OcrCodecTest {
         assertEquals("a|b&c~d\\e", tricky.text)
         assertEquals(Bounds(85, 20, 160, 40), tricky.bounds)
         assertEquals(1, tricky.lineIndex)
-        assertEquals(2, decoded.wordCount)
+        assertEquals(3, decoded.wordCount)
     }
 
     @Test
