@@ -29,8 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import com.wordlens.app.data.db.DictPack
 import com.wordlens.app.data.db.DictStatus
 import com.wordlens.app.data.settings.Settings
+
+/** 官方全量词典包（GitHub Release 资产，可直接在浏览器里打开核对） */
+private const val OFFICIAL_PACK_URL =
+    "https://github.com/AABCD233/WordLens/releases/download/dict-v1/dict-full.db.gz"
 
 @Composable
 fun SettingsScreen(
@@ -41,8 +49,15 @@ fun SettingsScreen(
     onUpdate: ((Settings) -> Settings) -> Unit,
     onClearCache: () -> Unit,
     onTestSpeak: () -> Unit,
+    packs: List<DictPack>,
+    activePackId: String,
+    packBusy: String?,
+    onInstallPack: (String, String) -> Unit,
+    onActivatePack: (DictPack) -> Unit,
+    onDeletePack: (DictPack) -> Unit,
     onMessage: (String) -> Unit
 ) {
+    val packUrl = remember { mutableStateOf("") }
     Column(
         Modifier
             .fillMaxSize()
@@ -197,6 +212,47 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(12.dp))
+        Text(
+            "词典包可以切换。内置包随 APK 走（11 万词）；更大的全量包从网上下载，不用重装 APK。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 19.sp
+        )
+        Spacer(Modifier.height(6.dp))
+        packs.forEach { pack ->
+            val isActive = if (pack.builtIn) activePackId.isBlank() else activePackId == pack.id
+            PackRow(
+                pack = pack,
+                active = isActive,
+                onActivate = { onActivatePack(pack) },
+                onDelete = { onDeletePack(pack) }
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = packUrl.value,
+            onValueChange = { packUrl.value = it },
+            label = { Text("词典包网址（.db 或 .db.gz）", fontSize = 12.sp) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = { onInstallPack(packUrl.value, "扩展词典包") },
+                enabled = packBusy == null && packUrl.value.isNotBlank()
+            ) { Text(if (packBusy == null) "下载并切换" else packBusy) }
+            if (packBusy == null) {
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = {
+                    packUrl.value = OFFICIAL_PACK_URL
+                    onMessage("已填入官方全量包地址")
+                }) { Text("填入官方地址", fontSize = 12.sp) }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = onClearCache) { Text("清空网络查询缓存") }
 
         Spacer(Modifier.height(22.dp))
@@ -209,6 +265,67 @@ fun SettingsScreen(
             lineHeight = 19.sp
         )
         Spacer(Modifier.height(30.dp))
+    }
+}
+
+@Composable
+private fun PackRow(
+    pack: DictPack,
+    active: Boolean,
+    onActivate: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                else Color.Transparent
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                (if (active) "✓ " else "") + pack.name,
+                style = MaterialTheme.typography.bodyMedium,
+                lineHeight = 20.sp
+            )
+            val subtitle = if (pack.builtIn) {
+                if (pack.words > 0) "随 APK 内置 · ${pack.words} 词" else "随 APK 内置"
+            } else {
+                "${pack.words} 词 · ${pack.sizeMb}"
+            }
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (!active) {
+            Text(
+                "切换",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onActivate)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+        if (!pack.builtIn) {
+            Text(
+                "删除",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onDelete)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
     }
 }
 

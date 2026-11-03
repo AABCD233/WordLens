@@ -31,15 +31,37 @@ class DictStore(context: Context) {
 
     private val targetFile: File get() = File(appContext.filesDir, "dict/dict.db")
 
+    /** 当前打开的词典文件：默认内置包，切包后指向 files/dicts/<id>.db */
+    @Volatile
+    private var activeFile: File = targetFile
+
+    /** 内置包解包后的位置，给词典包管理器用 */
+    fun builtInFile(): File = targetFile
+
+    /** 换一个词典包（文件必须已就位） */
+    fun usePack(file: File) {
+        synchronized(lock) {
+            runCatching { handle?.close() }
+            handle = null
+            activeFile = file
+            _status.value = DictStatus.IDLE
+        }
+    }
+
+    /** 切回内置包 */
+    fun useBuiltIn() = usePack(targetFile)
+
     /** 首次调用会把资产里的词典解包出来；已经在位就秒返回 */
     suspend fun ensureReady(): Boolean = withContext(Dispatchers.IO) {
         synchronized(lock) {
             if (handle != null && _status.value == DictStatus.READY) return@withContext true
             _status.value = DictStatus.PREPARING
             try {
+                // 切到扩展包时，内置包也需要先在位（用户可能中途切回去）
                 if (!isUpToDate()) unpack()
+                val file = activeFile.takeIf { it.exists() && it.length() > 512 } ?: targetFile
                 handle = SQLiteDatabase.openDatabase(
-                    targetFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY
+                    file.absolutePath, null, SQLiteDatabase.OPEN_READONLY
                 )
                 _status.value = DictStatus.READY
                 true

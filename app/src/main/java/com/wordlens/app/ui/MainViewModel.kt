@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.wordlens.app.AppContainer
 import com.wordlens.app.data.db.DocumentRow
+import com.wordlens.app.data.db.DictPack
 import com.wordlens.app.data.db.DictStatus
 import com.wordlens.app.data.db.SavedWord
 import com.wordlens.app.data.model.Definition
@@ -102,10 +103,24 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private val _dictWords = MutableStateFlow(0)
     val dictWords: StateFlow<Int> = _dictWords.asStateFlow()
 
+    private val _packs = MutableStateFlow<List<DictPack>>(emptyList())
+    val packs: StateFlow<List<DictPack>> = _packs.asStateFlow()
+
+    /** 下载词典包时的进度文字，null = 空闲 */
+    private val _packBusy = MutableStateFlow<String?>(null)
+    val packBusy: StateFlow<String?> = _packBusy.asStateFlow()
+
     init {
         scope.launch {
+            // 上次选的扩展包还在就继续用它
+            val active = app.dictPacks.activeId()
+            if (active.isNotBlank()) {
+                app.dictPacks.installed().firstOrNull { it.id == active && !it.builtIn }
+                    ?.let { app.dictStore.usePack(it.file) }
+            }
             app.dictionary.ensureDictReady()
             _dictWords.value = app.dictionary.dictWordCount()
+            refreshPacks()
         }
         refreshLibrary()
     }
@@ -380,6 +395,57 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         scope.launch {
             app.database.cacheClear()
             _messages.tryEmit("已清空网络缓存")
+        }
+    }
+
+    // ---------------- 词典包 ----------------
+
+    fun refreshPacks() {
+        scope.launch {
+            _packs.value = app.dictPacks.installed()
+            _dictWords.value = app.dictionary.dictWordCount()
+        }
+    }
+
+    fun installPack(url: String, name: String) {
+        if (url.isBlank()) {
+            _messages.tryEmit("先填一个词典包网址")
+            return
+        }
+        if (_packBusy.value != null) return
+        _packBusy.value = "正在连接…"
+        scope.launch {
+            val result = runCatching {
+                app.dictPacks.install(url, name) { done ->
+                    _packBusy.value = "已下载 " + String.format("%.1f MB", done / 1e6)
+                }
+            }
+            _packBusy.value = null
+            result.onSuccess { pack ->
+                refreshPacks()
+                _messages.tryEmit("已安装并切换到「${pack.name}」（${pack.words} 词）")
+            }.onFailure { t ->
+                _messages.tryEmit("安装失败：" + (t.message ?: t.javaClass.simpleName))
+            }
+        }
+    }
+
+    fun activatePack(pack: DictPack) {
+        scope.launch {
+            app.dictPacks.activate(pack)
+            app.dictionary.ensureDictReady()
+            refreshPacks()
+            _messages.tryEmit("已切换到「${pack.name}」")
+        }
+    }
+
+    fun deletePack(pack: DictPack) {
+        if (pack.builtIn) return
+        scope.launch {
+            app.dictPacks.delete(pack)
+            app.dictionary.ensureDictReady()
+            refreshPacks()
+            _messages.tryEmit("已删除「${pack.name}」")
         }
     }
 

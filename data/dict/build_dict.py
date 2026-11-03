@@ -83,7 +83,7 @@ def score(row) -> int:
     return s
 
 
-def iter_rows(csv_path: str):
+def iter_rows(csv_path: str, require_signal: bool = True):
     dropped = 0
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -103,8 +103,8 @@ def iter_rows(csv_path: str):
             tag = (raw.get("tag") or "").strip().lower()
             exchange = (raw.get("exchange") or "").strip()
             bnc = int(raw.get("bnc") or 0)
-            # 过滤长尾噪音：至少要有一种「权威信号」
-            if not (oxford or collins > 0 or frq > 0 or exchange or tag):
+            # 核心包过滤长尾噪音：至少要有一种「权威信号」；全量包不过滤
+            if require_signal and not (oxford or collins > 0 or frq > 0 or exchange or tag):
                 dropped += 1
                 continue
             row = {
@@ -127,14 +127,20 @@ def iter_rows(csv_path: str):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", default=None, help="本地 ecdict.csv 路径")
+    ap.add_argument("--profile", default="core", choices=["core", "full"],
+                    help="core=内置精简包（默认）；full=全量扩展包，供 App 内下载")
+    ap.add_argument("--out", default=None, help="输出路径，默认 core 进 assets，full 进 build/")
     args = ap.parse_args()
     csv_path = ensure_csv(args.csv)
+    full = args.profile == "full"
+    out_db = args.out or (os.path.join(BUILD_DIR, "dict-full.db") if full else OUT_DB)
+    os.makedirs(os.path.dirname(out_db), exist_ok=True)
 
     os.makedirs(ASSET_DIR, exist_ok=True)
-    if os.path.exists(OUT_DB):
-        os.remove(OUT_DB)
+    if os.path.exists(out_db):
+        os.remove(out_db)
 
-    conn = sqlite3.connect(OUT_DB)
+    conn = sqlite3.connect(out_db)
     conn.executescript(
         """
         PRAGMA journal_mode=DELETE;
@@ -167,7 +173,7 @@ def main() -> int:
         "collins,oxford,frq,bnc,score) VALUES(?,?,?,?,?,?,?,?,?,?,?)"
     )
     batch, staged = [], 0
-    for row, sc in iter_rows(csv_path):
+    for row, sc in iter_rows(csv_path, require_signal=not full):
         batch.append((
             row["word"], row["phonetic"], row["translation"], row["definition"],
             row["tag"], row["exchange"], row["collins"], row["oxford"], row["frq"], row["bnc"], sc,
@@ -211,12 +217,12 @@ def main() -> int:
         conn.commit()
         conn.execute("VACUUM")
         conn.commit()
-        return os.path.getsize(OUT_DB)
+        return os.path.getsize(out_db)
 
-    size = os.path.getsize(OUT_DB)
+    size = os.path.getsize(out_db)
     thresholds = [12000, 8000, 5000, 3000, 2000, 1000]
     ti = 0
-    while size > MAX_DB_BYTES and ti < len(thresholds):
+    while not full and size > MAX_DB_BYTES and ti < len(thresholds):
         before = conn.execute("SELECT COUNT(1) FROM dict").fetchone()[0]
         size = shrink(thresholds[ti])
         after = conn.execute("SELECT COUNT(1) FROM dict").fetchone()[0]
@@ -243,6 +249,8 @@ def main() -> int:
         }
 
     report = {
+        "profile": args.profile,
+        "out": os.path.basename(out_db),
         "rows": total,
         "size_mb": round(size / 1e6, 2),
         "size_bytes": size,
@@ -254,12 +262,13 @@ def main() -> int:
         "samples": samples,
     }
     os.makedirs(BUILD_DIR, exist_ok=True)
-    with open(os.path.join(BUILD_DIR, "build_stats.json"), "w", encoding="utf-8") as f:
+    stats_name = "build_stats_full.json" if full else "build_stats.json"
+    with open(os.path.join(BUILD_DIR, stats_name), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
 
     print(json.dumps(report, ensure_ascii=False, indent=2))
     conn.close()
-    print(f"[ok] 产物: {OUT_DB}  ({size/1e6:.1f} MB, {total} 词)")
+    print(f"[ok] 产物: {out_db}  ({size/1e6:.1f} MB, {total} 词)")
     return 0 if integrity == "ok" and non_lower == 0 and empty_tr == 0 else 1
 
 

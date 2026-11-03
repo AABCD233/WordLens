@@ -35,7 +35,9 @@ data class Settings(
     val youdaoAppKey: String = "",
     val youdaoAppSecret: String = "",
     val azureKey: String = "",
-    val azureRegion: String = "global"
+    val azureRegion: String = "global",
+    /** 当前使用的扩展词典包 id；空串 = 内置核心词典 */
+    val activePackId: String = ""
 ) {
     val aiReady: Boolean get() = aiEnabled && aiApiKey.isNotBlank()
 }
@@ -65,7 +67,8 @@ class AppSettings(context: Context) {
         youdaoAppKey = prefs.getString(K_YD_KEY, "") ?: "",
         youdaoAppSecret = prefs.getString(K_YD_SECRET, "") ?: "",
         azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
-        azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global"
+        azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global",
+        activePackId = prefs.getString(K_PACK, "") ?: ""
     )
 
     fun update(transform: (Settings) -> Settings) {
@@ -89,6 +92,7 @@ class AppSettings(context: Context) {
             putString(K_YD_SECRET, next.youdaoAppSecret)
             putString(K_AZ_KEY, next.azureKey)
             putString(K_AZ_REGION, next.azureRegion)
+            putString(K_PACK, next.activePackId)
         }.apply()
     }
 
@@ -115,5 +119,6 @@ class AppSettings(context: Context) {
         const val K_YD_SECRET = "youdao_app_secret"
         const val K_AZ_KEY = "azure_key"
         const val K_AZ_REGION = "azure_region"
+        const val K_PACK = "active_dict_pack"
     }
 }

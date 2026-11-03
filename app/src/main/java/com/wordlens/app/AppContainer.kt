@@ -2,6 +2,7 @@ package com.wordlens.app
 
 import android.content.Context
 import com.wordlens.app.data.db.AppDatabase
+import com.wordlens.app.data.db.DictPackManager
 import com.wordlens.app.data.db.DictStore
 import com.wordlens.app.data.dict.Cache
 import com.wordlens.app.data.dict.DictionaryRepository
@@ -24,6 +25,7 @@ class AppContainer(context: Context) {
     val dictStore = DictStore(context)
     val ocr = OcrEngine(context)
     val tts = TtsEngine(context)
+    val dictPacks = DictPackManager(context, dictStore, settings)
 
     private val cache = object : Cache {
         override suspend fun get(key: String): String? = database.cacheGet(key)

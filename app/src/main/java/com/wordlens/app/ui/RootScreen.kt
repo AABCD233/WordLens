@@ -41,6 +41,8 @@ fun RootScreen(vm: MainViewModel) {
     val dictStatus by vm.dictStatus.collectAsState()
     val dictWords by vm.dictWords.collectAsState()
     val ttsState by vm.ttsState.collectAsState()
+    val packs by vm.packs.collectAsState()
+    val packBusy by vm.packBusy.collectAsState()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Camera) }
     var reviewing by rememberSaveable { mutableStateOf(false) }
@@ -139,6 +141,12 @@ fun RootScreen(vm: MainViewModel) {
                         onUpdate = vm::updateSettings,
                         onClearCache = vm::clearNetworkCache,
                         onTestSpeak = { vm.speak("This page is about offline dictionaries.") },
+                        packs = packs,
+                        activePackId = settings.activePackId,
+                        packBusy = packBusy,
+                        onInstallPack = vm::installPack,
+                        onActivatePack = vm::activatePack,
+                        onDeletePack = vm::deletePack,
                         onMessage = vm::toast
                     )
                 }
