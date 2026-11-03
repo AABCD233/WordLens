@@ -171,14 +171,23 @@ class AppDatabase(context: Context) :
             .use { if (it.moveToFirst()) it.getString(0) else null }
     }
 
-    suspend fun cachePut(key: String, payload: String) = write { db ->
-        val v = ContentValues().apply {
-            put("key", key); put("payload", payload); put("updated_at", System.currentTimeMillis())
+    // 显式返回 Unit：insertWithOnConflict 返回 rowId，不能让 put() 跟着变成 Long
+    suspend fun cachePut(key: String, payload: String) {
+        write { db ->
+            val v = ContentValues().apply {
+                put("key", key); put("payload", payload); put("updated_at", System.currentTimeMillis())
+            }
+            db.insertWithOnConflict("web_cache", null, v, SQLiteDatabase.CONFLICT_REPLACE)
+            Unit
         }
-        db.insertWithOnConflict("web_cache", null, v, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    suspend fun cacheClear() = write { db -> db.delete("web_cache", null, null) }
+    suspend fun cacheClear() {
+        write { db ->
+            db.delete("web_cache", null, null)
+            Unit
+        }
+    }
 
     // ---------------- helpers ----------------
 

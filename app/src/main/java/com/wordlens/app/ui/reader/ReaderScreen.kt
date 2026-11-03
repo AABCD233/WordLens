@@ -81,6 +81,9 @@ fun ReaderScreen(
     onDeleteDoc: (() -> Unit)?,
     onMessage: (String) -> Unit
 ) {
+    // 在 Composable 作用域里先取出剪贴板，才能在下面的 onClick lambda 里用
+    val clipboard = LocalClipboardManager.current
+
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         ReaderHeader(
             title = if (state.docId != 0L) state.title else "正在识别…",
@@ -90,7 +93,7 @@ fun ReaderScreen(
             onModeChange = onModeChange,
             onDeleteDoc = onDeleteDoc,
             onCopyAll = {
-                LocalClipboardManager.current.setText(AnnotatedString(state.text))
+                clipboard.setText(AnnotatedString(state.text))
                 onMessage("已复制全文")
             },
             canCopy = state.text.isNotBlank()
@@ -140,7 +143,7 @@ fun ReaderScreen(
             onSave = onSaveWord,
             onAiExplain = onAiExplain,
             onCopy = { text ->
-                LocalClipboardManager.current.setText(AnnotatedString(text))
+                clipboard.setText(AnnotatedString(text))
                 onMessage("已复制")
             }
         )
