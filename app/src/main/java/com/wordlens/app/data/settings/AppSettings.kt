@@ -23,8 +23,19 @@ data class Settings(
     /** 点词后自动朗读 */
     val autoSpeak: Boolean = false,
     val speechRate: Float = 1.0f,
-    /** 阅读页默认视图：words / image / text */
-    val readerMode: String = "words"
+    /** 阅读页默认视图：words / image / text / zh */
+    val readerMode: String = "words",
+    /** 在线翻译用哪个引擎（见 TranslateEngine.id） */
+    val translateEngine: String = "mymemory",
+    /** 有道词典网页接口补中文（默认关，要联网） */
+    val useYoudaoOnlineDict: Boolean = false,
+    // ---- 各家翻译服务的凭据，只在用户自己填了才会用到 ----
+    val baiduAppId: String = "",
+    val baiduKey: String = "",
+    val youdaoAppKey: String = "",
+    val youdaoAppSecret: String = "",
+    val azureKey: String = "",
+    val azureRegion: String = "global"
 ) {
     val aiReady: Boolean get() = aiEnabled && aiApiKey.isNotBlank()
 }
@@ -46,7 +57,15 @@ class AppSettings(context: Context) {
         aiModel = prefs.getString(K_AI_MODEL, Settings().aiModel) ?: Settings().aiModel,
         autoSpeak = prefs.getBoolean(K_AUTO_SPEAK, false),
         speechRate = prefs.getFloat(K_RATE, 1.0f),
-        readerMode = prefs.getString(K_MODE, "words") ?: "words"
+        readerMode = prefs.getString(K_MODE, "words") ?: "words",
+        translateEngine = prefs.getString(K_ENGINE, "mymemory") ?: "mymemory",
+        useYoudaoOnlineDict = prefs.getBoolean(K_YD_DICT, false),
+        baiduAppId = prefs.getString(K_BD_ID, "") ?: "",
+        baiduKey = prefs.getString(K_BD_KEY, "") ?: "",
+        youdaoAppKey = prefs.getString(K_YD_KEY, "") ?: "",
+        youdaoAppSecret = prefs.getString(K_YD_SECRET, "") ?: "",
+        azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
+        azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global"
     )
 
     fun update(transform: (Settings) -> Settings) {
@@ -62,6 +81,14 @@ class AppSettings(context: Context) {
             putBoolean(K_AUTO_SPEAK, next.autoSpeak)
             putFloat(K_RATE, next.speechRate)
             putString(K_MODE, next.readerMode)
+            putString(K_ENGINE, next.translateEngine)
+            putBoolean(K_YD_DICT, next.useYoudaoOnlineDict)
+            putString(K_BD_ID, next.baiduAppId)
+            putString(K_BD_KEY, next.baiduKey)
+            putString(K_YD_KEY, next.youdaoAppKey)
+            putString(K_YD_SECRET, next.youdaoAppSecret)
+            putString(K_AZ_KEY, next.azureKey)
+            putString(K_AZ_REGION, next.azureRegion)
         }.apply()
     }
 
@@ -80,5 +107,13 @@ class AppSettings(context: Context) {
         const val K_AUTO_SPEAK = "auto_speak"
         const val K_RATE = "tts_rate"
         const val K_MODE = "reader_mode"
+        const val K_ENGINE = "translate_engine"
+        const val K_YD_DICT = "youdao_online_dict"
+        const val K_BD_ID = "baidu_app_id"
+        const val K_BD_KEY = "baidu_key"
+        const val K_YD_KEY = "youdao_app_key"
+        const val K_YD_SECRET = "youdao_app_secret"
+        const val K_AZ_KEY = "azure_key"
+        const val K_AZ_REGION = "azure_region"
     }
 }

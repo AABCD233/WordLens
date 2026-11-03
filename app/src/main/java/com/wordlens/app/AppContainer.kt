@@ -8,6 +8,7 @@ import com.wordlens.app.data.dict.DictionaryRepository
 import com.wordlens.app.data.dict.FreeDictionaryApi
 import com.wordlens.app.data.dict.LlmClient
 import com.wordlens.app.data.dict.TranslateApi
+import com.wordlens.app.data.dict.YoudaoDictApi
 import com.wordlens.app.data.ocr.OcrEngine
 import com.wordlens.app.data.settings.AppSettings
 import com.wordlens.app.data.tts.TtsEngine
@@ -30,7 +31,8 @@ class AppContainer(context: Context) {
     }
 
     private val freeApi = FreeDictionaryApi(cache)
-    private val translateApi = TranslateApi(cache)
+    private val translateApi = TranslateApi(cache, settings)
+    private val youdaoDict = YoudaoDictApi(cache)
     private val llm = LlmClient(settings)
 
     val dictionary = DictionaryRepository(
@@ -39,6 +41,7 @@ class AppContainer(context: Context) {
         settings = settings,
         freeApi = freeApi,
         translateApi = translateApi,
+        youdaoDict = youdaoDict,
         llm = llm
     )
 }

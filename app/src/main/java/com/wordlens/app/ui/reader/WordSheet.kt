@@ -1,6 +1,7 @@
 package com.wordlens.app.ui.reader
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
@@ -52,6 +54,7 @@ fun WordSheet(
     onSpeak: (String) -> Unit,
     onSave: () -> Unit,
     onAiExplain: () -> Unit,
+    onTranslateExample: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -93,6 +96,7 @@ fun WordSheet(
                         onSpeak = onSpeak,
                         onSave = onSave,
                         onAiExplain = onAiExplain,
+                        onTranslateExample = onTranslateExample,
                         onCopy = onCopy
                     )
 
@@ -136,6 +140,7 @@ private fun DefinitionBody(
     onSpeak: (String) -> Unit,
     onSave: () -> Unit,
     onAiExplain: () -> Unit,
+    onTranslateExample: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
     // 词形还原提示：点的是 studying，词典给的是 study
@@ -209,14 +214,7 @@ private fun DefinitionBody(
                     style = MaterialTheme.typography.bodyMedium,
                     lineHeight = 21.sp
                 )
-                d.example?.let { ex ->
-                    Text(
-                        "  e.g. $ex",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 6.dp, bottom = 2.dp)
-                    )
-                }
+                d.example?.let { ex -> ExampleBlock(ex, word, onTranslateExample) }
             }
             Spacer(Modifier.height(6.dp))
         }
@@ -310,6 +308,47 @@ private fun DefinitionBody(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/** 一句英文例句 + 按需翻译 */
+@Composable
+private fun ExampleBlock(example: String, word: WordUi, onTranslate: (String) -> Unit) {
+    val translated = word.exampleZh[example]
+    Column(Modifier.padding(start = 6.dp, bottom = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "e.g. $example",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 19.sp,
+                modifier = Modifier.weight(1f)
+            )
+            if (translated == null) {
+                if (word.translatingExample == example) {
+                    CircularProgressIndicator(Modifier.height(14.dp).width(14.dp))
+                } else {
+                    Text(
+                        "译",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .clickable { onTranslate(example) }
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+        }
+        translated?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                lineHeight = 19.sp,
+                modifier = Modifier.padding(top = 1.dp)
+            )
+        }
     }
 }
 

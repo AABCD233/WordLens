@@ -36,7 +36,11 @@ data class ReaderUi(
     val text: String = "",
     val ocr: OcrResult = OcrResult.EMPTY,
     val bitmap: Bitmap? = null,
-    val error: String? = null
+    val error: String? = null,
+    /** 全文译文；null 表示还没翻过 */
+    val zhText: String? = null,
+    val zhLoading: Boolean = false,
+    val zhError: String? = null
 )
 
 data class WordUi(
@@ -47,7 +51,10 @@ data class WordUi(
     val definition: Definition? = null,
     val aiText: String? = null,
     val aiLoading: Boolean = false,
-    val aiError: String? = null
+    val aiError: String? = null,
+    /** 例句译文：key 是原文 */
+    val exampleZh: Map<String, String> = emptyMap(),
+    val translatingExample: String? = null
 )
 
 data class WordbookUi(
@@ -225,6 +232,51 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
                 aiText = result.getOrNull(),
                 aiError = result.exceptionOrNull()?.message
             )
+        }
+    }
+
+    /** 翻译点词卡片里的一条英文例句 */
+    fun translateExample(example: String) {
+        val text = example.trim()
+        if (text.isEmpty()) return
+        if (_word.value.exampleZh.containsKey(text)) return
+        _word.value = _word.value.copy(translatingExample = text)
+        scope.launch {
+            val result = app.dictionary.translateText(text)
+            val current = _word.value
+            _word.value = if (result.isSuccess) {
+                current.copy(
+                    exampleZh = current.exampleZh + (text to result.getOrThrow()),
+                    translatingExample = null
+                )
+            } else {
+                _messages.tryEmit("例句翻译失败：" + (result.exceptionOrNull()?.message ?: "未知错误"))
+                current.copy(translatingExample = null)
+            }
+        }
+    }
+
+    /** 翻译整篇识别出来的英文 */
+    fun translateFullText(force: Boolean = false) {
+        val state = _reader.value
+        if (state.text.isBlank()) {
+            _messages.tryEmit("还没有识别到文字")
+            return
+        }
+        if (state.zhLoading) return
+        if (!force && !state.zhText.isNullOrBlank()) return
+        _reader.value = state.copy(zhLoading = true, zhError = null)
+        scope.launch {
+            val result = app.dictionary.translateText(state.text)
+            val current = _reader.value
+            _reader.value = if (result.isSuccess) {
+                current.copy(zhLoading = false, zhText = result.getOrThrow(), zhError = null)
+            } else {
+                current.copy(
+                    zhLoading = false,
+                    zhError = result.exceptionOrNull()?.message ?: "翻译失败"
+                )
+            }
         }
     }
 

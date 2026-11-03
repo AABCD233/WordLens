@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -79,6 +80,8 @@ fun ReaderScreen(
     onAiExplain: () -> Unit,
     onModeChange: (String) -> Unit,
     onDeleteDoc: (() -> Unit)?,
+    onTranslateAll: () -> Unit,
+    onTranslateExample: (String) -> Unit,
     onMessage: (String) -> Unit
 ) {
     // 在 Composable 作用域里先取出剪贴板，才能在下面的 onClick lambda 里用
@@ -121,6 +124,12 @@ fun ReaderScreen(
                     }
                 }
 
+                settings.readerMode == "zh" -> ZhTextView(
+                    state = state,
+                    onTranslate = onTranslateAll,
+                    onRetry = { onTranslateAll() }
+                )
+
                 settings.readerMode == "image" && state.bitmap != null ->
                     ImageWordView(state = state, activeWord = word.query.takeIf { word.visible }, onWordTap = onWordTap)
 
@@ -142,11 +151,60 @@ fun ReaderScreen(
             onSpeak = onSpeak,
             onSave = onSaveWord,
             onAiExplain = onAiExplain,
+            onTranslateExample = { example -> onTranslateExample(example) },
             onCopy = { text ->
                 clipboard.setText(AnnotatedString(text))
                 onMessage("已复制")
             }
         )
+    }
+}
+
+@Composable
+private fun ZhTextView(state: ReaderUi, onTranslate: () -> Unit, onRetry: () -> Unit) {
+    val zh = state.zhText
+    when {
+        state.zhLoading -> Centered {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(12.dp))
+                Text("正在翻译…（长文会分几段翻）", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        !zh.isNullOrBlank() -> Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                zh,
+                style = MaterialTheme.typography.bodyLarge,
+                lineHeight = 26.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(onClick = onRetry) { Text("换个引擎重翻") }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        else -> Centered {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(28.dp)
+            ) {
+                Text(
+                    if (state.zhError != null) "翻译失败：${state.zhError}" else "把这一整篇英文翻成中文",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+                Spacer(Modifier.height(14.dp))
+                Button(onClick = onTranslate) {
+                    Text(if (state.zhError != null) "重试" else "翻译全文")
+                }
+            }
+        }
     }
 }
 
@@ -185,6 +243,7 @@ private fun ReaderHeader(
                 ModeChip("单词视图", mode == "words") { onModeChange("words") }
                 ModeChip("原图对照", mode == "image", enabled = hasImage) { onModeChange("image") }
                 ModeChip("纯文本", mode == "text") { onModeChange("text") }
+                ModeChip("译文", mode == "zh") { onModeChange("zh") }
             }
         }
     }

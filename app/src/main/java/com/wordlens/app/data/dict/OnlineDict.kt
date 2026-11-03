@@ -28,6 +28,15 @@ object Http {
     fun postJson(url: String, body: String, headers: Map<String, String> = emptyMap(), timeoutMs: Int = 45000): String =
         request(url, "POST", body.toByteArray(Charsets.UTF_8), headers + mapOf("Content-Type" to "application/json"), timeoutMs)
 
+    /** 表单提交：百度 / 有道这些老接口只吃 x-www-form-urlencoded */
+    fun postForm(url: String, fields: Map<String, String>, timeoutMs: Int = 20000): String {
+        val body = fields.entries.joinToString("&") { (k, v) -> urlEncode(k) + "=" + urlEncode(v) }
+        return request(
+            url, "POST", body.toByteArray(Charsets.UTF_8),
+            mapOf("Content-Type" to "application/x-www-form-urlencoded; charset=UTF-8"), timeoutMs
+        )
+    }
+
     private fun request(url: String, method: String, body: ByteArray?, headers: Map<String, String>, timeoutMs: Int): String {
         var conn: HttpURLConnection? = null
         try {
@@ -136,27 +145,6 @@ class FreeDictionaryApi(private val cache: Cache) {
         val out = ArrayList<String>(arr.length())
         for (i in 0 until arr.length()) out += arr.optString(i, "")
         return out.filter { it.isNotBlank() }
-    }
-}
-
-/** MyMemory 免费翻译（en -> zh-CN），给离线词典没收录的词兜底 */
-class TranslateApi(private val cache: Cache) {
-
-    suspend fun translate(word: String): String? = withContext(Dispatchers.IO) {
-        val key = "mt:${word.lowercase()}"
-        cache.get(key)?.let { return@withContext it }
-        val url = "https://api.mymemory.translated.net/get?q=${Http.urlEncode(word)}&langpair=en|zh-CN"
-        val body = Http.get(url)
-        val text = runCatching {
-            JSONObject(body).getJSONObject("responseData").optString("translatedText", "")
-        }.getOrNull()?.trim().orEmpty()
-        // MyMemory 对查不到的词会把原词原样返回，还可能带告警文本
-        val ok = text.isNotEmpty() && !text.contains("MYMEMORY WARNING", ignoreCase = true)
-            && !text.equals(word, ignoreCase = true)
-        if (ok) {
-            cache.put(key, text)
-            text
-        } else null
     }
 }
 

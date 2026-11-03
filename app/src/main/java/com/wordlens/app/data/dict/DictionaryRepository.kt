@@ -22,6 +22,7 @@ class DictionaryRepository(
     private val settings: AppSettings,
     private val freeApi: FreeDictionaryApi,
     private val translateApi: TranslateApi,
+    private val youdaoDict: YoudaoDictApi,
     private val llm: LlmClient
 ) {
 
@@ -69,15 +70,80 @@ class DictionaryRepository(
             }
         }
 
-        // 3. 离线没有、免费词典也没有中文 —— 机器翻译兜底
-        if (s.useMachineTranslate && result.zhLines.isEmpty() && !result.matchedOffline) {
-            runCatching { translateApi.translate(result.lemma) }.getOrNull()?.let { zh ->
-                result = result.copy(zhMachine = zh, sources = result.sources + SOURCE_TRANSLATE)
+        // 3. 有道词典网页接口：离线没中文时补一份（需用户手动打开）
+        if (s.useYoudaoOnlineDict && result.zhLines.isEmpty()) {
+            runCatching { youdaoDict.lookup(result.lemma) }.getOrNull()?.let { entry ->
+                result = result.copy(
+                    phonetic = result.phonetic ?: entry.phonetic,
+                    zhLines = entry.zhLines,
+                    sources = result.sources + SOURCE_YOUDAO
+                )
+            }
+        }
+
+        // 4. 还是没有中文 —— 走用户选的翻译引擎兜底
+        if (s.useMachineTranslate && result.zhLines.isEmpty()) {
+            translateApi.translate(result.lemma).getOrNull()?.let { zh ->
+                result = result.copy(
+                    zhMachine = zh,
+                    sources = result.sources + engineSourceName(s)
+                )
             }
         }
 
         return result
     }
+
+    /**
+     * 整段翻译。长文按句子切成若干块分别翻（免费接口有长度限制），
+     * 每块失败不影响其它块，最后把成功的拼起来，全部失败才算失败。
+     */
+    suspend fun translateText(text: String): Result<String> {
+        val clean = text.trim()
+        if (clean.isEmpty()) return Result.success("")
+        val chunks = chunkForTranslate(clean)
+        val out = StringBuilder()
+        var lastError: Throwable? = null
+        for (chunk in chunks) {
+            val r = translateApi.translate(chunk)
+            if (r.isSuccess) {
+                if (out.isNotEmpty()) out.append('\n')
+                out.append(r.getOrThrow())
+            } else {
+                lastError = r.exceptionOrNull()
+            }
+        }
+        return if (out.isNotEmpty()) Result.success(out.toString()) else
+            Result.failure(lastError ?: IllegalStateException("翻译失败"))
+    }
+
+    /** 按句子边界切块，单块不超过 [MAX_CHUNK] 字符 */
+    internal fun chunkForTranslate(text: String, maxChunk: Int = MAX_CHUNK): List<String> {
+        if (text.length <= maxChunk) return listOf(text)
+        val sentences = text.replace(Regex("([.!?;:]\\s+)"), "$1\u0001").split('\u0001')
+        val out = ArrayList<String>()
+        val cur = StringBuilder()
+        for (raw in sentences) {
+            val s = raw.trim()
+            if (s.isEmpty()) continue
+            if (s.length > maxChunk) {
+                if (cur.isNotEmpty()) { out += cur.toString(); cur.setLength(0) }
+                s.chunked(maxChunk).forEach { out += it }
+                continue
+            }
+            if (cur.length + s.length + 1 > maxChunk && cur.isNotEmpty()) {
+                out += cur.toString()
+                cur.setLength(0)
+            }
+            if (cur.isNotEmpty()) cur.append(' ')
+            cur.append(s)
+        }
+        if (cur.isNotBlank()) out += cur.toString()
+        return out.ifEmpty { listOf(text) }
+    }
+
+    private fun engineSourceName(s: com.wordlens.app.data.settings.Settings): String =
+        "翻译·" + TranslateEngine.of(s.translateEngine).label
 
     /** 「AI 详解」按需触发 */
     suspend fun aiExplain(word: String, sentence: String?): Result<String> =
@@ -108,5 +174,7 @@ class DictionaryRepository(
         const val SOURCE_FREE_API = "免费词典"
         const val SOURCE_TRANSLATE = "机器翻译"
         const val SOURCE_AI = "AI"
+        const val SOURCE_YOUDAO = "有道词典"
+        const val MAX_CHUNK = 450
     }
 }

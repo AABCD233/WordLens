@@ -1,5 +1,11 @@
 package com.wordlens.app.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.wordlens.app.data.dict.TranslateEngine
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,7 +68,60 @@ fun SettingsScreen(
             settings.useMachineTranslate
         ) { checked -> onUpdate { s -> s.copy(useMachineTranslate = checked) } }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp))
+        Section("在线翻译源")
+        Text(
+            "例句翻译、全文翻译和「离线没查到的词」都走这里选的引擎。缓存按引擎分开，换引擎不会拿到旧译文。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 19.sp
+        )
+        Spacer(Modifier.height(6.dp))
+        TranslateEngine.values().forEach { engine ->
+            EngineRow(
+                engine = engine,
+                selected = settings.translateEngine == engine.id
+            ) { onUpdate { s -> s.copy(translateEngine = engine.id) } }
+        }
+
+        when (settings.translateEngine) {
+            TranslateEngine.BAIDU.id -> {
+                Spacer(Modifier.height(8.dp))
+                KeyField("百度 APP ID", settings.baiduAppId) { v -> onUpdate { s -> s.copy(baiduAppId = v) } }
+                KeyField("百度密钥", settings.baiduKey) { v -> onUpdate { s -> s.copy(baiduKey = v) } }
+            }
+            TranslateEngine.YOUDAO.id -> {
+                Spacer(Modifier.height(8.dp))
+                KeyField("有道应用 ID", settings.youdaoAppKey) { v -> onUpdate { s -> s.copy(youdaoAppKey = v) } }
+                KeyField("有道应用密钥", settings.youdaoAppSecret) { v -> onUpdate { s -> s.copy(youdaoAppSecret = v) } }
+            }
+            TranslateEngine.AZURE.id -> {
+                Spacer(Modifier.height(8.dp))
+                KeyField("Azure 订阅密钥", settings.azureKey) { v -> onUpdate { s -> s.copy(azureKey = v) } }
+                KeyField("Azure 区域（如 eastasia）", settings.azureRegion) { v -> onUpdate { s -> s.copy(azureRegion = v) } }
+            }
+            TranslateEngine.AI.id -> {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (settings.aiReady) "使用下面「AI 详解」里配置的接口翻译。"
+                    else "请先到下面「AI 详解」里填好接口地址和 Key。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (settings.aiReady) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.error,
+                    lineHeight = 19.sp
+                )
+            }
+            else -> Unit
+        }
+
+        Spacer(Modifier.height(10.dp))
+        ToggleRow(
+            "有道词典在线补中文",
+            "离线词典没给中文时，再问一次有道词典（需联网）",
+            settings.useYoudaoOnlineDict
+        ) { checked -> onUpdate { s -> s.copy(useYoudaoOnlineDict = checked) } }
+
+        Spacer(Modifier.height(18.dp))
         Section("AI 详解（可选）")
         ToggleRow("启用 AI 详解", "点词卡片上会出现「AI 详解」按钮", settings.aiEnabled) { checked ->
             onUpdate { s -> s.copy(aiEnabled = checked) }
@@ -151,6 +210,54 @@ fun SettingsScreen(
         )
         Spacer(Modifier.height(30.dp))
     }
+}
+
+@Composable
+private fun EngineRow(
+    engine: TranslateEngine,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                else Color.Transparent
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            if (selected) "◉" else "○",
+            fontSize = 15.sp,
+            color = if (selected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(engine.label, style = MaterialTheme.typography.bodyLarge, lineHeight = 21.sp)
+            Text(
+                engine.hint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 17.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun KeyField(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label, fontSize = 12.sp) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+    )
 }
 
 @Composable

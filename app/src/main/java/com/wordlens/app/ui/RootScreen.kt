@@ -79,6 +79,8 @@ fun RootScreen(vm: MainViewModel) {
             onAiExplain = vm::requestAiExplain,
             onModeChange = { mode -> vm.updateSettings { it.copy(readerMode = mode) } },
             onDeleteDoc = reader.docId.takeIf { it != 0L }?.let { id -> { vm.deleteDocument(id) } },
+            onTranslateAll = { vm.translateFullText() },
+            onTranslateExample = { vm.translateExample(it) },
             onMessage = vm::toast
         )
 
