@@ -50,7 +50,8 @@ jobs:
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           echo "apksigner: $APKSIGNER"
           "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/sig.txt
-          EXPECTED="48:5f:0e:1d:de:10:65:73:4c:a5:08:ca:f3:5c:d0:f2:9f:2d:aa:cf:62:0c:28:e7:24:6b:c9:db:42:20:d0:a7"
+          # apksigner 输出的指纹不带冒号、全小写
+          EXPECTED="485f0e1dde1065734ca508caf35cd0f29f2daacf620c28e7246bc9db4220d0a7"
           if grep -qi "$EXPECTED" /tmp/sig.txt; then
             echo "✅ 签名证书指纹与固定值一致：$EXPECTED"
           else
