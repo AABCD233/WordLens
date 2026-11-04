@@ -3,13 +3,11 @@
 package com.wordlens.app.ui.reader
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,7 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -58,7 +55,8 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -435,24 +433,32 @@ private fun ImageWordView(
 ) {
     val bitmap = state.bitmap ?: return
     val ocr = state.ocr
-    // 布局比例只认位图本身。OCR 的 imageWidth/Height 来自原文件（可能带 EXIF 旋转），
-    // 拿它算容器宽高比会把图拉变形 —— 这就是之前「图片被拉伸」的原因。
-    val ratio = (bitmap.height.toFloat() / bitmap.width.coerceAtLeast(1)).takeIf { it > 0.05f } ?: 1f
+    // 内容比例只认位图本身。以前用 OCR 的 imageWidth/Height 算容器比例，
+    // 只要它和位图朝向不一致（EXIF、旋转），图就会被拉扁。
+    val ratio = (bitmap.height.toFloat() / bitmap.width.coerceAtLeast(1)).takeIf { it in 0.05f..20f } ?: 1f
+    val imageBitmap = remember(bitmap) { bitmap.asImageBitmap() }
 
-    var displayed by remember { mutableStateOf(IntSize.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     var scale by remember(state.docId) { mutableStateOf(1f) }
     var offset by remember(state.docId) { mutableStateOf(Offset.Zero) }
 
-    /**
-     * 限制平移范围：内容放大后也不能拖出边界。
-     * 关键是减掉视口尺寸 —— 长图在 1× 时就比屏幕高，此时也要能上下拖看底部。
-     */
+    // 内容尺寸：宽铺满视口，高按位图比例算
+    fun contentSize(): Offset =
+        if (viewport.width <= 0) Offset.Zero else Offset(viewport.width.toFloat(), viewport.width * ratio)
+
+    /** 平移边界：内容缩放后不能拖出画面；1× 时长图也要能上下拖 */
     fun clampOffset(raw: Offset, s: Float): Offset {
-        if (displayed.width == 0 || viewport.width == 0) return Offset.Zero
-        val maxX = (displayed.width * s - viewport.width).coerceAtLeast(0f)
-        val maxY = (displayed.height * s - viewport.height).coerceAtLeast(0f)
+        val content = contentSize()
+        if (content.x <= 0f) return Offset.Zero
+        val maxX = (content.x * s - viewport.width).coerceAtLeast(0f)
+        val maxY = (content.y * s - viewport.height).coerceAtLeast(0f)
         return Offset(raw.x.coerceIn(-maxX, 0f), raw.y.coerceIn(-maxY, 0f))
+    }
+
+    /** 屏幕坐标 -> OCR 图像素坐标 */
+    fun toImageSpace(pos: Offset): Offset {
+        val content = contentSize()
+        return (pos - offset) / scale
     }
 
     Box(
@@ -461,17 +467,17 @@ private fun ImageWordView(
             .background(Color(0xFF101413))
             .clipToBounds()
             .onSizeChanged { viewport = it }
-            .pointerInput(ocr, displayed) {
+            .pointerInput(ocr, viewport) {
                 detectTransformGestures { centroid, pan, zoom, _ ->
                     val next = (scale * zoom).coerceIn(1f, 6f)
                     val k = next / scale
-                    // 让手指中心下的那一点保持不动：o' = c - (c - o) * k
+                    // 以捏合中心为锚点：o' = c - (c - o) * k
                     val anchored = centroid - (centroid - offset) * k
                     offset = clampOffset(anchored + pan, next)
                     scale = next
                 }
             }
-            .pointerInput(ocr, displayed) {
+            .pointerInput(ocr, viewport) {
                 detectTapGestures(
                     onDoubleTap = { pos ->
                         if (scale > 1.05f) {
@@ -480,24 +486,26 @@ private fun ImageWordView(
                         } else {
                             val next = 2.5f
                             scale = next
-                            offset = clampOffset(pos - (pos - Offset.Zero) * next, next)
+                            offset = clampOffset(pos - pos * next, next)
                         }
                     },
                     onTap = { pos ->
-                        val content = (pos - offset) / scale
-                        val sx = if (displayed.width > 0) displayed.width.toFloat() / ocr.imageWidth.coerceAtLeast(1) else 1f
-                        val sy = if (displayed.height > 0) displayed.height.toFloat() / ocr.imageHeight.coerceAtLeast(1) else sx
-                        val word = hitTest(ocr, content, sx, sy) ?: return@detectTapGestures
+                        val content = contentSize()
+                        val inImage = toImageSpace(pos)
+                        if (content.x <= 0f) return@detectTapGestures
+                        val sx = content.x / ocr.imageWidth.coerceAtLeast(1)
+                        val sy = content.y / ocr.imageHeight.coerceAtLeast(1)
+                        val word = hitTest(ocr, inImage, sx, sy) ?: return@detectTapGestures
                         onWordTap(word.text, ocr.lines.getOrNull(word.lineIndex)?.text)
                     }
                 )
             }
     ) {
-        Box(
+        // 一块 Canvas 同时画位图和词框：位图用明确的 dstRect 绘制，
+        // 不经过 Image / ContentScale / aspectRatio，父约束再怎么压也不会变形。
+        Canvas(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(if (ratio > 0f) ratio else 0.75f)
-                .onSizeChanged { displayed = it }
+                .fillMaxSize()
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -506,45 +514,47 @@ private fun ImageWordView(
                     transformOrigin = TransformOrigin(0f, 0f)
                 }
         ) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "识别用的原图",
-                contentScale = ContentScale.FillBounds,
-                modifier = Modifier.fillMaxSize()
+            val cw = size.width
+            val ch = cw * ratio
+            if (cw <= 0f || ch <= 0f) return@Canvas
+            drawImage(
+                image = imageBitmap,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(bitmap.width, bitmap.height),
+                dstOffset = IntOffset.Zero,
+                dstSize = IntSize(cw.toInt(), ch.toInt()),
+                filterQuality = FilterQuality.Medium
             )
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                if (displayed.width == 0 || displayed.height == 0) return@Canvas
-                val sx = displayed.width.toFloat() / ocr.imageWidth.coerceAtLeast(1)
-                val sy = displayed.height.toFloat() / ocr.imageHeight.coerceAtLeast(1)
-                ocr.lines.forEach { line ->
-                    line.words.forEach { token ->
-                        val isActive = activeWord != null && token.text.equals(activeWord, ignoreCase = true)
-                        if (!token.hasLetters && !isActive) return@forEach
-                        val left = token.bounds.left.toFloat() * sx
-                        val top = token.bounds.top.toFloat() * sy
-                        val w = token.bounds.width.toFloat() * sx
-                        val h = token.bounds.height.toFloat() * sy
-                        // 框要够显眼：平常态 1.6dp 半透明 + 浅色底衬，选中态 3dp 实色
-                        val strokeWidth = if (isActive) 3.dp.toPx() else 1.6.dp.toPx()
-                        if (!isActive) {
-                            drawRect(
-                                color = Color(0x33FFFFFF),
-                                topLeft = Offset(left, top),
-                                size = Size(w, h)
-                            )
-                        }
+            val sx = cw / ocr.imageWidth.coerceAtLeast(1)
+            val sy = ch / ocr.imageHeight.coerceAtLeast(1)
+            ocr.lines.forEach { line ->
+                line.words.forEach { token ->
+                    val isActive = activeWord != null && token.text.equals(activeWord, ignoreCase = true)
+                    if (!token.hasLetters && !isActive) return@forEach
+                    val left = token.bounds.left.toFloat() * sx
+                    val top = token.bounds.top.toFloat() * sy
+                    val w = token.bounds.width.toFloat() * sx
+                    val h = token.bounds.height.toFloat() * sy
+                    // 框要够显眼：平常态 1.6dp 半透明 + 浅色底衬，选中态 3dp 实色
+                    val strokeWidth = if (isActive) 3.dp.toPx() else 1.6.dp.toPx()
+                    if (!isActive) {
                         drawRect(
-                            color = if (isActive) Color(0xFFE8A33D) else Color(0xA6009E8C),
+                            color = Color(0x33FFFFFF),
                             topLeft = Offset(left, top),
-                            size = Size(w, h),
-                            style = Stroke(width = strokeWidth)
+                            size = Size(w, h)
                         )
                     }
+                    drawRect(
+                        color = if (isActive) Color(0xFFE8A33D) else Color(0xA6009E8C),
+                        topLeft = Offset(left, top),
+                        size = Size(w, h),
+                        style = Stroke(width = strokeWidth)
+                    )
                 }
             }
         }
 
-        // 缩放提示 / 复位按钮
+        // 缩放提示 / 复位
         Row(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
