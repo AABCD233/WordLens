@@ -39,6 +39,8 @@ import com.wordlens.app.data.db.DictStatus
 import com.wordlens.app.data.dict.TranslateEngine
 import com.wordlens.app.data.settings.Settings
 
+private const val REPO_URL = "https://github.com/AABCD233/WordLens"
+
 /**
  * 设置页。分组 + 可折叠：常用项默认展开，进阶项默认收起，
  * 免得一屏塞十几行看着乱。
@@ -62,6 +64,7 @@ fun SettingsScreen(
     onMessage: (String) -> Unit
 ) {
     val engine = TranslateEngine.of(settings.translateEngine)
+    val context = androidx.compose.ui.platform.LocalContext.current
     Column(
         Modifier
             .fillMaxSize()
@@ -255,13 +258,44 @@ fun SettingsScreen(
         }
 
         // ---------- 关于 ----------
-        SectionCard(title = "关于", subtitle = "词镜 WordLens 1.3.0", defaultExpanded = false) {
+        SectionCard(title = "关于", subtitle = "词镜 WordLens 1.3.1", defaultExpanded = false) {
             Text(
                 "照片只在手机本地识别（ML Kit 端侧模型），不上传。\n" +
                     "词典数据来自开源项目 ECDICT（MIT）。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 19.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "仓库地址",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                REPO_URL,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                lineHeight = 18.sp,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(REPO_URL)
+                                )
+                            )
+                        }
+                    }
+                    .padding(vertical = 2.dp)
+            )
+            Text(
+                "问题反馈、Release 下载、源码都在这里。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
             Text(

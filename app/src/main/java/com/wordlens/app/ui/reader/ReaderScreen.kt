@@ -435,18 +435,23 @@ private fun ImageWordView(
 ) {
     val bitmap = state.bitmap ?: return
     val ocr = state.ocr
-    val imageW = ocr.imageWidth.coerceAtLeast(1)
-    val imageH = ocr.imageHeight.coerceAtLeast(1)
-    val ratio = imageH.toFloat() / imageW
+    // 布局比例只认位图本身。OCR 的 imageWidth/Height 来自原文件（可能带 EXIF 旋转），
+    // 拿它算容器宽高比会把图拉变形 —— 这就是之前「图片被拉伸」的原因。
+    val ratio = (bitmap.height.toFloat() / bitmap.width.coerceAtLeast(1)).takeIf { it > 0.05f } ?: 1f
 
     var displayed by remember { mutableStateOf(IntSize.Zero) }
+    var viewport by remember { mutableStateOf(IntSize.Zero) }
     var scale by remember(state.docId) { mutableStateOf(1f) }
     var offset by remember(state.docId) { mutableStateOf(Offset.Zero) }
 
+    /**
+     * 限制平移范围：内容放大后也不能拖出边界。
+     * 关键是减掉视口尺寸 —— 长图在 1× 时就比屏幕高，此时也要能上下拖看底部。
+     */
     fun clampOffset(raw: Offset, s: Float): Offset {
-        if (displayed.width == 0) return Offset.Zero
-        val maxX = (displayed.width * (s - 1f)).coerceAtLeast(0f)
-        val maxY = (displayed.height * (s - 1f)).coerceAtLeast(0f)
+        if (displayed.width == 0 || viewport.width == 0) return Offset.Zero
+        val maxX = (displayed.width * s - viewport.width).coerceAtLeast(0f)
+        val maxY = (displayed.height * s - viewport.height).coerceAtLeast(0f)
         return Offset(raw.x.coerceIn(-maxX, 0f), raw.y.coerceIn(-maxY, 0f))
     }
 
@@ -455,29 +460,34 @@ private fun ImageWordView(
             .fillMaxSize()
             .background(Color(0xFF101413))
             .clipToBounds()
+            .onSizeChanged { viewport = it }
             .pointerInput(ocr, displayed) {
-                detectTransformGestures { _, pan, zoom, _ ->
+                detectTransformGestures { centroid, pan, zoom, _ ->
                     val next = (scale * zoom).coerceIn(1f, 6f)
-                    // 以左上角为原点缩放：新偏移 = 旧偏移 * 缩放比 + 平移量
-                    offset = clampOffset(offset * (next / scale) + pan, next)
+                    val k = next / scale
+                    // 让手指中心下的那一点保持不动：o' = c - (c - o) * k
+                    val anchored = centroid - (centroid - offset) * k
+                    offset = clampOffset(anchored + pan, next)
                     scale = next
                 }
             }
             .pointerInput(ocr, displayed) {
                 detectTapGestures(
-                    onDoubleTap = {
+                    onDoubleTap = { pos ->
                         if (scale > 1.05f) {
                             scale = 1f
                             offset = Offset.Zero
                         } else {
-                            scale = 2.5f
-                            offset = clampOffset(Offset.Zero, 2.5f)
+                            val next = 2.5f
+                            scale = next
+                            offset = clampOffset(pos - (pos - Offset.Zero) * next, next)
                         }
                     },
                     onTap = { pos ->
                         val content = (pos - offset) / scale
-                        val s = if (displayed.width > 0) displayed.width.toFloat() / imageW else 1f
-                        val word = hitTest(ocr, content, s) ?: return@detectTapGestures
+                        val sx = if (displayed.width > 0) displayed.width.toFloat() / ocr.imageWidth.coerceAtLeast(1) else 1f
+                        val sy = if (displayed.height > 0) displayed.height.toFloat() / ocr.imageHeight.coerceAtLeast(1) else sx
+                        val word = hitTest(ocr, content, sx, sy) ?: return@detectTapGestures
                         onWordTap(word.text, ocr.lines.getOrNull(word.lineIndex)?.text)
                     }
                 )
@@ -503,16 +513,17 @@ private fun ImageWordView(
                 modifier = Modifier.fillMaxSize()
             )
             Canvas(modifier = Modifier.fillMaxSize()) {
-                if (displayed.width == 0) return@Canvas
-                val s = displayed.width.toFloat() / imageW
+                if (displayed.width == 0 || displayed.height == 0) return@Canvas
+                val sx = displayed.width.toFloat() / ocr.imageWidth.coerceAtLeast(1)
+                val sy = displayed.height.toFloat() / ocr.imageHeight.coerceAtLeast(1)
                 ocr.lines.forEach { line ->
                     line.words.forEach { token ->
                         val isActive = activeWord != null && token.text.equals(activeWord, ignoreCase = true)
                         if (!token.hasLetters && !isActive) return@forEach
-                        val left = token.bounds.left.toFloat() * s
-                        val top = token.bounds.top.toFloat() * s
-                        val w = token.bounds.width.toFloat() * s
-                        val h = token.bounds.height.toFloat() * s
+                        val left = token.bounds.left.toFloat() * sx
+                        val top = token.bounds.top.toFloat() * sy
+                        val w = token.bounds.width.toFloat() * sx
+                        val h = token.bounds.height.toFloat() * sy
                         // 框要够显眼：平常态 1.6dp 半透明 + 浅色底衬，选中态 3dp 实色
                         val strokeWidth = if (isActive) 3.dp.toPx() else 1.6.dp.toPx()
                         if (!isActive) {
@@ -569,10 +580,10 @@ private fun ImageWordView(
     }
 }
 
-private fun hitTest(ocr: OcrResult, tap: Offset, scale: Float): OcrWord? {
-    if (scale <= 0f) return null
-    val x = (tap.x / scale).toInt()
-    val y = (tap.y / scale).toInt()
+private fun hitTest(ocr: OcrResult, tap: Offset, sx: Float, sy: Float): OcrWord? {
+    if (sx <= 0f || sy <= 0f) return null
+    val x = (tap.x / sx).toInt()
+    val y = (tap.y / sy).toInt()
     val hits = ocr.words.filter { it.hasLetters && it.bounds.inflated(4, 12).contains(x, y) }
     if (hits.isEmpty()) return null
     val anchorY = ocr.lines.getOrNull(hits.first().lineIndex)
