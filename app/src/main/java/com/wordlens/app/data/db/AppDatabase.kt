@@ -209,8 +209,11 @@ class AppDatabase(context: Context) :
         db.query("user_note", arrayOf("word", "note"), null, null, null, null, "updated_at ASC")
             .use { c ->
                 while (c.moveToNext()) {
-                    val w = c.getStringOrEmpty("word")
-                    if (w.isNotEmpty()) out[w] = c.getStringOrEmpty("note")
+                    val wIdx = c.getColumnIndex("word")
+                    val nIdx = c.getColumnIndex("note")
+                    val w = if (wIdx >= 0) c.getString(wIdx) ?: "" else ""
+                    val n = if (nIdx >= 0) c.getString(nIdx) ?: "" else ""
+                    if (w.isNotEmpty()) out[w] = n
                 }
             }
         out
