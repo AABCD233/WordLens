@@ -91,7 +91,7 @@ class DictPackManager(
                 return installOne(u, name, onProgress)
             } catch (t: Throwable) {
                 last = t
-                onProgress(-(i + 1))   // 负数表示「第 i+1 个源失败，正在换源」
+                onProgress(-(i + 1).toLong())   // 负数表示「第 i+1 个源失败，正在换源」
             }
         }
         throw last ?: IllegalStateException("没有可用的下载地址")
