@@ -13,6 +13,23 @@
 
 ---
 
+## 零之一、关于签名（覆盖安装报「签名不一致」看这里）
+
+早期版本是用 CI 上临时生成的 `debug.keystore` 签的，**每次构建指纹都不一样**，
+所以第二个包盖不上第一个包。从 1.2.0 起改成用仓库里固定的 `keystore/wordlens.p12`
+（RSA 2048，有效期到 2056 年），debug / release 共用同一把钥匙，以后升级都能直接覆盖安装。
+
+- 证书 SHA-256：`48:5f:0e:1d:de:10:65:73:4c:a5:08:ca:f3:5c:d0:f2:9f:2d:aa:cf:62:0c:28:e7:24:6b:c9:db:42:20:d0:a7`
+- 口令：`wordlens`（`storePassword` / `keyPassword` 相同，alias 也是 `wordlens`）
+
+**第一次装 1.2.0 时请先卸载旧版**（旧版签名对不上，只能先删掉），之后就再也不用了。
+装好后可以在「设置 → 关于」里核对指纹。
+
+想换成自己的证书：`keytool -genkeypair -keystore keystore/wordlens.p12 -storetype PKCS12 ...`
+再把 `app/build.gradle.kts` 里 `signingConfigs` 的口令改掉即可。
+
+---
+
 ## 零、词库不够用？换词典包
 
 设置 → 离线词典 → 词典包：

@@ -12,22 +12,42 @@ android {
         applicationId = "com.wordlens.app"
         minSdk = 26          // Android 8.0
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    /**
+     * 固定签名。
+     *
+     * GitHub Actions 每跑一次都是全新机器，默认的 ~/.android/debug.keystore 是临时生成的，
+     * 两次构建的签名指纹不同 —— 手机上覆盖安装就会报「签名不一致 / 应用未安装」。
+     * 所以这里把仓库里的 keystore/wordlens.p12 当作唯一签名证书，debug 与 release 共用。
+     *
+     * 这是个人自用 App 的自签名证书，口令公开是有意为之（方便任何人复现构建）。
+     * 要发给别人装或上架，请换成你自己的证书，并把口令挪到 GitHub Secrets。
+     */
+    signingConfigs {
+        create("wordlens") {
+            storeFile = rootProject.file("keystore/wordlens.p12")
+            storeType = "PKCS12"
+            storePassword = "wordlens"
+            keyAlias = "wordlens"
+            keyPassword = "wordlens"
+        }
     }
 
     buildTypes {
         debug {
             // CI 直接产 app-debug.apk，手机装了就能用
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("wordlens")
         }
         release {
             // 默认不混淆：免去签名/规则调试成本。要瘦身就自己打开并补 proguard 规则
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // 没有 keystore 时用 debug key 签，保证 assembleRelease 也能出可安装包
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("wordlens")
         }
     }
 

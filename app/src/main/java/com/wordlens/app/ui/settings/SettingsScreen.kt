@@ -258,8 +258,9 @@ fun SettingsScreen(
         Spacer(Modifier.height(22.dp))
         Section("关于")
         Text(
-            "词镜 WordLens 1.0.0 · 照片只在手机本地识别（ML Kit 端侧模型），不上传。\n" +
-                "词典数据来自开源项目 ECDICT（MIT）。",
+            "词镜 WordLens 1.2.0 · 照片只在手机本地识别（ML Kit 端侧模型），不上传。\n" +
+                "词典数据来自开源项目 ECDICT（MIT）。\n" +
+                "签名指纹 48:5f:0e:1d:…:20:d0:a7（固定证书，覆盖安装不会冲突）。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = 19.sp
