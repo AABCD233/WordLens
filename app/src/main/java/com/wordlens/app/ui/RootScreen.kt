@@ -201,6 +201,8 @@ fun RootScreen(vm: MainViewModel) {
                         onInstallOfficial = vm::installOfficialPack,
                         onActivatePack = vm::activatePack,
                         onDeletePack = vm::deletePack,
+                        onExportBackup = { uri -> vm.exportBackup(uri) },
+                        onImportBackup = { uri -> vm.importBackup(uri) },
                         onMessage = vm::toast
                     )
                 }

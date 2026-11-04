@@ -192,6 +192,38 @@ class AppDatabase(context: Context) :
         )
     }
 
+    // ---------------- 备份用：全量读取 ----------------
+
+    suspend fun allDocuments(): List<DocumentRow> = read { db ->
+        db.query("document", null, null, null, null, null, "created_at ASC")
+            .useList { it.toDocumentRow() }
+    }
+
+    suspend fun allSavedWords(): List<SavedWord> = read { db ->
+        db.query("saved_word", null, null, null, null, null, "added_at ASC")
+            .useList { it.toSavedWord() }
+    }
+
+    suspend fun allUserNotes(): Map<String, String> = read { db ->
+        val out = LinkedHashMap<String, String>()
+        db.query("user_note", arrayOf("word", "note"), null, null, null, null, "updated_at ASC")
+            .use { c ->
+                while (c.moveToNext()) {
+                    val w = c.getStringOrEmpty("word")
+                    if (w.isNotEmpty()) out[w] = c.getStringOrEmpty("note")
+                }
+            }
+        out
+    }
+
+    /** 导入文档时用：相同正文（同一次识别）就不重复插入 */
+    suspend fun documentExistsByText(fullText: String): Boolean = read { db ->
+        db.query(
+            "document", arrayOf("id"), "full_text=?", arrayOf(fullText),
+            null, null, null, "1"
+        ).use { it.moveToFirst() }
+    }
+
     // ---------------- user_note ----------------
 
     /** 用户自己补充/修改的释义 */

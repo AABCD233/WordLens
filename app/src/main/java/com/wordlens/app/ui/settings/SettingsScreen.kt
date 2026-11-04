@@ -61,6 +61,8 @@ fun SettingsScreen(
     onInstallOfficial: () -> Unit,
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
+    onExportBackup: (android.net.Uri) -> Unit,
+    onImportBackup: (android.net.Uri) -> Unit,
     onMessage: (String) -> Unit
 ) {
     val engine = TranslateEngine.of(settings.translateEngine)
@@ -215,6 +217,45 @@ fun SettingsScreen(
             OutlinedButton(onClick = onTestSpeak, enabled = ttsReady) {
                 Text(if (ttsReady) "试听一句" else "系统未装英文语音，去「设置 → 无障碍 → 文字转语音」装一个")
             }
+        }
+
+        // ---------- 数据 ----------
+        SectionCard(title = "数据备份与导入", subtitle = "导出 / 恢复生词本、识别记录、自定义释义", defaultExpanded = false) {
+            val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
+            ) { uri -> if (uri != null) onExportBackup(uri) }
+            val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+            ) { uri -> if (uri != null) onImportBackup(uri) }
+
+            Text(
+                "备份成一个 JSON 文件，包含：生词本（含复习进度）、识别记录（标题 + 全文 + 词框坐标）、你的自定义释义。\n" +
+                    "照片文件不打包（体积太大），恢复到新手机后记录还在，只是没有原图可看。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 19.sp
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = {
+                        val name = "wordlens-backup.json"
+                        runCatching { exportLauncher.launch(name) }
+                            .onFailure { onMessage("这台手机不支持选择保存位置") }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("导出备份") }
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        runCatching { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
+                            .onFailure { onMessage("这台手机不支持选择文件") }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("导入备份") }
+            }
+            Spacer(Modifier.height(6.dp))
+            Hint("导入是「合并」不是覆盖：同一个生词保留复习进度较靠后的那条，重复的识别记录会跳过。")
         }
 
         // ---------- AI ----------

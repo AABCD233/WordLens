@@ -495,6 +495,31 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         refreshWordbook()
     }
 
+    // ---------------- 备份 / 恢复 ----------------
+
+    fun exportBackup(uri: android.net.Uri) {
+        scope.launch {
+            runCatching { app.backup.exportTo(uri) }
+                .onSuccess { _messages.tryEmit("备份已导出") }
+                .onFailure { _messages.tryEmit("导出失败：${it.message ?: it.javaClass.simpleName}") }
+        }
+    }
+
+    fun importBackup(uri: android.net.Uri) {
+        scope.launch {
+            runCatching { app.backup.importFrom(uri) }
+                .onSuccess { r ->
+                    refreshLibrary()
+                    refreshWordbook()
+                    _messages.tryEmit(
+                        "已导入：记录 ${r.documents} 条、生词 ${r.words} 个、释义 ${r.notes} 条" +
+                            if (r.skipped > 0) "（跳过重复 ${r.skipped} 条）" else ""
+                    )
+                }
+                .onFailure { _messages.tryEmit("导入失败：${it.message ?: it.javaClass.simpleName}") }
+        }
+    }
+
     // ---------------- 设置 ----------------
 
     fun updateSettings(transform: (Settings) -> Settings) = app.settings.update(transform)
