@@ -60,6 +60,15 @@ class AppDatabase(context: Context) :
         execSQL("CREATE INDEX IF NOT EXISTS idx_saved_due ON saved_word(due_at)")
         execSQL(
             """
+            CREATE TABLE IF NOT EXISTS user_note (
+              word TEXT PRIMARY KEY,
+              note TEXT NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        execSQL(
+            """
             CREATE TABLE IF NOT EXISTS web_cache (
               key TEXT PRIMARY KEY,
               payload TEXT NOT NULL,
@@ -70,8 +79,18 @@ class AppDatabase(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // 目前只有 v1；将来加列就写在这里（保持向后兼容，不删用户数据）
-        if (oldVersion < 1) onCreate(db)
+        // 只做加法：不删表、不改列，老用户数据原样保留
+        if (oldVersion < 2) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS user_note (
+                  word TEXT PRIMARY KEY,
+                  note TEXT NOT NULL,
+                  updated_at INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
     }
 
     // ---------------- document ----------------
@@ -173,6 +192,32 @@ class AppDatabase(context: Context) :
         )
     }
 
+    // ---------------- user_note ----------------
+
+    /** 用户自己补充/修改的释义 */
+    suspend fun userNote(word: String): String? = read { db ->
+        db.query("user_note", arrayOf("note"), "word=?", arrayOf(word.lowercase()), null, null, null)
+            .use { if (it.moveToFirst()) it.getString(0) else null }
+    }
+
+    suspend fun setUserNote(word: String, note: String) {
+        write { db ->
+            val key = word.lowercase().trim()
+            if (key.isEmpty()) return@write Unit
+            if (note.isBlank()) {
+                db.delete("user_note", "word=?", arrayOf(key))
+            } else {
+                val v = ContentValues().apply {
+                    put("word", key)
+                    put("note", note.trim())
+                    put("updated_at", System.currentTimeMillis())
+                }
+                db.insertWithOnConflict("user_note", null, v, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            Unit
+        }
+    }
+
     // ---------------- web_cache ----------------
 
     suspend fun cacheGet(key: String): String? = read { db ->
@@ -256,7 +301,7 @@ class AppDatabase(context: Context) :
 
     companion object {
         private const val NAME = "wordlens.db"
-        private const val VERSION = 1
+        private const val VERSION = 2
     }
 }
 

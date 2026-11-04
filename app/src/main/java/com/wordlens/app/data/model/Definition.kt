@@ -40,6 +40,8 @@ data class Definition(
     val audioUrl: String? = null,
     /** 双语例句（有道在线补的，需要联网） */
     val examples: List<DefExample> = emptyList(),
+    /** 用户自己写的释义/笔记（本地保存，优先显示） */
+    val userNote: String? = null,
     /** 想联网补充但网络不可用（断网/超时），UI 会提示「当前只显示离线内容」 */
     val onlineFailed: Boolean = false,
     val aiText: String? = null,

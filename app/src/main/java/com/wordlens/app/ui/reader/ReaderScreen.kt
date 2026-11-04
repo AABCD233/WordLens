@@ -65,6 +65,7 @@ import com.wordlens.app.data.model.OcrLine
 import com.wordlens.app.data.model.OcrResult
 import com.wordlens.app.data.model.OcrWord
 import com.wordlens.app.data.settings.Settings
+import com.wordlens.app.ui.WordInputDialog
 import com.wordlens.app.ui.ReaderUi
 import com.wordlens.app.ui.WordUi
 
@@ -84,8 +85,10 @@ fun ReaderScreen(
     onDeleteDoc: (() -> Unit)?,
     onTranslateAll: () -> Unit,
     onAnalyze: () -> Unit,
+    onManualLookup: (String) -> Unit,
     onMessage: (String) -> Unit
 ) {
+    var manualOpen by remember { mutableStateOf(false) }
     // 在 Composable 作用域里先取出剪贴板，才能在下面的 onClick lambda 里用
     val clipboard = LocalClipboardManager.current
 
@@ -140,7 +143,12 @@ fun ReaderScreen(
                 )
 
                 settings.readerMode == "image" && state.bitmap != null ->
-                    ImageWordView(state = state, activeWord = word.query.takeIf { word.visible }, onWordTap = onWordTap)
+                    ImageWordView(
+                        state = state,
+                        activeWord = word.query.takeIf { word.visible },
+                        onWordTap = onWordTap,
+                        onManualLookup = { manualOpen = true }
+                    )
 
                 else -> WordsView(
                     state = state,
@@ -152,6 +160,15 @@ fun ReaderScreen(
         }
     }
 
+    if (manualOpen) {
+        WordInputDialog(
+            onDismiss = { manualOpen = false },
+            onConfirm = { w ->
+                manualOpen = false
+                if (w.isNotBlank()) onManualLookup(w)
+            }
+        )
+    }
 }
 
 @Composable
@@ -263,6 +280,21 @@ private fun AiArticleView(state: ReaderUi, aiReady: Boolean, onAnalyze: () -> Un
             }
         }
     }
+}
+
+/** 图片上的半透明浮动小按钮 */
+@Composable
+private fun FloatChip(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        color = Color.White,
+        fontSize = 12.sp,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color(0x99000000))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    )
 }
 
 @Composable
@@ -429,7 +461,8 @@ private fun WordToken(
 private fun ImageWordView(
     state: ReaderUi,
     activeWord: String?,
-    onWordTap: (String, String?) -> Unit
+    onWordTap: (String, String?) -> Unit,
+    onManualLookup: () -> Unit
 ) {
     val bitmap = state.bitmap ?: return
     val ocr = state.ocr
@@ -439,6 +472,7 @@ private fun ImageWordView(
     val imageBitmap = remember(bitmap) { bitmap.asImageBitmap() }
 
     var viewport by remember { mutableStateOf(IntSize.Zero) }
+    var showBoxes by remember(state.docId) { mutableStateOf(true) }
     var scale by remember(state.docId) { mutableStateOf(1f) }
     var offset by remember(state.docId) { mutableStateOf(Offset.Zero) }
 
@@ -525,6 +559,7 @@ private fun ImageWordView(
                 dstSize = IntSize(cw.toInt(), ch.toInt()),
                 filterQuality = FilterQuality.Medium
             )
+            if (!showBoxes) return@Canvas
             val sx = cw / ocr.imageWidth.coerceAtLeast(1)
             val sy = ch / ocr.imageHeight.coerceAtLeast(1)
             ocr.lines.forEach { line ->
@@ -552,6 +587,18 @@ private fun ImageWordView(
                     )
                 }
             }
+        }
+
+        // 左下角：词框开关 + 手动查词（半透明，不挡内容）
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FloatChip(if (showBoxes) "▣ 词框开" else "▢ 词框关") { showBoxes = !showBoxes }
+            Spacer(Modifier.width(8.dp))
+            FloatChip("⌨ 手动查词") { onManualLookup() }
         }
 
         // 缩放提示 / 复位

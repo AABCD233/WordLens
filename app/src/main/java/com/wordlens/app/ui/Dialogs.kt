@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -54,6 +55,82 @@ fun RenameDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(text.trim()) }) { Text("保存") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
+}
+
+/**
+ * 自定义释义编辑框。
+ * 多行输入，保存后立刻显示在词卡最上面，只存本机。
+ */
+@Composable
+fun NoteDialog(
+    word: String,
+    initial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("「$word」的我的释义") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 110.dp),
+                    label = { Text("可以写释义、易混点、记忆方法……", fontSize = 12.sp) },
+                    minLines = 4,
+                    maxLines = 8
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "只保存在这台手机上，会跟着这个词一直显示。清空后保存即可删除。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text) }) { Text("保存") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
+}
+
+/** 手动查词：OCR 认错字、或者图上没这个词时，直接敲一个查 */
+@Composable
+fun WordInputDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("手动查词") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("英文单词", fontSize = 12.sp) },
+                    placeholder = { Text("识别错的词可以在这里直接查", fontSize = 12.sp) }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text.trim()) },
+                enabled = text.isNotBlank()
+            ) { Text("查") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }

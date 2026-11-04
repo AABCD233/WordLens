@@ -125,7 +125,11 @@ class DictionaryRepository(
             }
         }
 
-        return result.copy(onlineFailed = networkFailed)
+        // 5. 用户自己写的释义：lemm 和原词都认，优先显示
+        val note = runCatching { db.userNote(result.lemma) }.getOrNull()
+            ?: runCatching { db.userNote(normalized) }.getOrNull()
+
+        return result.copy(onlineFailed = networkFailed, userNote = note)
     }
 
     /** 只有「连不上」才算断网提示；HTTP 404 之类的业务失败不打扰用户 */

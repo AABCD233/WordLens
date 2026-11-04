@@ -388,6 +388,21 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         }
     }
 
+    /** 保存/清除用户自己写的释义，保存后立刻刷新当前词卡 */
+    fun saveUserNote(word: String, note: String) {
+        val key = word.trim()
+        if (key.isEmpty()) return
+        scope.launch {
+            app.database.setUserNote(key, note)
+            val cur = _word.value
+            val def = cur.definition
+            if (def != null && (def.lemma.equals(key, true) || def.query.equals(key, true))) {
+                _word.value = cur.copy(definition = def.copy(userNote = note.trim().ifBlank { null }))
+            }
+            _messages.tryEmit(if (note.isBlank()) "已清除自定义释义" else "已保存你的释义")
+        }
+    }
+
     fun saveCurrentWord() {
         val def = _word.value.definition ?: return
         val word = def.lemma.ifBlank { _word.value.query }

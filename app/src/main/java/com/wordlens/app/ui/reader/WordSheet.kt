@@ -59,6 +59,8 @@ fun WordSheet(
     onSave: () -> Unit,
     onAiExplain: (String) -> Unit,
     onTranslateExample: (String) -> Unit,
+    onEditNote: () -> Unit,
+    onLookupWord: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -101,6 +103,8 @@ fun WordSheet(
                         onSave = onSave,
                         onAiExplain = onAiExplain,
                         onTranslateExample = onTranslateExample,
+                        onEditNote = onEditNote,
+                        onLookupWord = onLookupWord,
                         onCopy = onCopy
                     )
 
@@ -145,6 +149,8 @@ private fun DefinitionBody(
     onSave: () -> Unit,
     onAiExplain: (String) -> Unit,
     onTranslateExample: (String) -> Unit,
+    onEditNote: () -> Unit,
+    onLookupWord: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
     // 断网提示：只影响「在线补充」这一层，离线释义照常可用
@@ -163,13 +169,22 @@ private fun DefinitionBody(
         Spacer(Modifier.height(8.dp))
     }
 
-    // 词形还原提示：点的是 studying，词典给的是 study
+    // 原形提示：点的是 studying，词典给的是 study —— 原形本身可以再点一次
     if (!def.lemmaIsExact && def.lemma.isNotBlank() && !def.lemma.equals(def.query, ignoreCase = true)) {
-        Text(
-            "「${def.query}」按原形「${def.lemma}」查",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.secondary
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "「${def.query}」按原形",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(4.dp))
+            WordChip(def.lemma) { onLookupWord(def.lemma) }
+            Text(
+                "查",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Spacer(Modifier.height(6.dp))
     }
 
@@ -244,37 +259,98 @@ private fun DefinitionBody(
     if (def.examples.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
         SectionTitle("例句")
-        def.examples.take(4).forEach { ex ->
-            Row(verticalAlignment = Alignment.Top) {
-                Text(
-                    ex.en,
-                    style = MaterialTheme.typography.bodySmall,
-                    lineHeight = 20.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = { onSpeak(ex.en) }) { Text("读", fontSize = 12.sp) }
-            }
-            ex.zh?.let { zh ->
-                Text(
-                    zh,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 19.sp,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
+        def.examples.take(4).forEachIndexed { index, ex ->
+            Column(Modifier.padding(top = if (index == 0) 0.dp else 10.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Text(
+                        ex.en,
+                        style = MaterialTheme.typography.bodySmall,
+                        lineHeight = 20.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "读",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .clickable { onSpeak(ex.en) }
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+                // 译文紧跟原句，句与句之间才留空
+                ex.zh?.let { zh ->
+                    Text(
+                        zh,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 19.sp,
+                        modifier = Modifier.padding(top = 1.dp)
+                    )
+                }
             }
         }
     }
 
-    // 词形变化
+    // 词形变化：每个都能点进去查（应对「只认识变形、不认识原形」的场景）
     if (def.inflections.isNotEmpty()) {
-        Spacer(Modifier.height(6.dp))
-        SectionTitle("词形")
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("词形（可点）")
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            def.inflections.forEach { line ->
+                val form = formOf(line)
+                if (form != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            line.removeSuffix(form).trim(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        WordChip(form) { onLookupWord(form) }
+                    }
+                } else {
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+
+    // 我的释义：自己补的内容，优先于词典
+    Spacer(Modifier.height(12.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SectionTitle("我的释义")
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = onEditNote) {
+            Text(if (def.userNote.isNullOrBlank()) "添加" else "修改", fontSize = 12.sp)
+        }
+    }
+    if (def.userNote.isNullOrBlank()) {
         Text(
-            def.inflections.joinToString("   "),
+            "词典解释不合适？可以自己写一条，只存在本机。",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 19.sp
         )
+    } else {
+        Surface(
+            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                def.userNote,
+                style = MaterialTheme.typography.bodyMedium,
+                lineHeight = 22.sp,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+            )
+        }
     }
 
     // 上下文句子
@@ -458,6 +534,32 @@ private fun posChinese(code: String): String = when (code.trim().lowercase()) {
     "abbr." -> "缩写"
     "pl." -> "复数"
     else -> ""
+}
+
+/** 词形行尾那个单词，例如「过去分词 / 过去式 studied」里的 studied */
+private fun formOf(line: String): String? {
+    val token = line.trim().substringAfterLast(' ').trim()
+    if (token.isEmpty() || token.any { it.isDigit() }) return null
+    if (!token.all { it in 'a'..'z' || it in 'A'..'Z' || it == '-' || it == '\'' }) return null
+    return token
+}
+
+/** 可点的小词块 */
+@Composable
+private fun WordChip(word: String, onClick: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(6.dp)
+    ) {
+        Text(
+            word,
+            fontSize = 12.sp,
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(horizontal = 7.dp, vertical = 2.dp)
+        )
+    }
 }
 
 /** 简易胶囊按钮：不依赖 FilterChip，避开实验性 API */

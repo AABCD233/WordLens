@@ -71,6 +71,7 @@ fun RootScreen(vm: MainViewModel) {
         if (toast == current) toast = null
     }
 
+    var noteWord by remember { mutableStateOf<String?>(null) }
     var renameId by remember { mutableStateOf<Long?>(null) }
     var renameInitial by remember { mutableStateOf("") }
     var deleteId by remember { mutableStateOf<Long?>(null) }
@@ -112,6 +113,7 @@ fun RootScreen(vm: MainViewModel) {
             onDeleteDoc = reader.docId.takeIf { it != 0L }?.let { id -> { deleteId = id } },
             onTranslateAll = { vm.translateFullText() },
             onAnalyze = { vm.analyzeArticle(force = reader.aiArticle != null) },
+            onManualLookup = { w -> vm.lookupWord(w, null) },
             onMessage = vm::toast
         )
 
@@ -216,9 +218,23 @@ fun RootScreen(vm: MainViewModel) {
             onSave = vm::saveCurrentWord,
             onAiExplain = { kind -> vm.requestAiExplain(kind) },
             onTranslateExample = { example -> vm.translateExample(example) },
+            onEditNote = { noteWord = word.definition?.lemma?.ifBlank { null } ?: word.query },
+            onLookupWord = { w -> vm.lookupWord(w, word.sentence) },
             onCopy = { text ->
                 clipboard.setText(AnnotatedString(text))
                 vm.toast("已复制")
+            }
+        )
+    }
+
+    noteWord?.let { w ->
+        NoteDialog(
+            word = w,
+            initial = word.definition?.userNote.orEmpty(),
+            onDismiss = { noteWord = null },
+            onConfirm = { note ->
+                vm.saveUserNote(w, note)
+                noteWord = null
             }
         )
     }
