@@ -61,12 +61,15 @@ class DictionaryRepository(
         var result = if (rows.isEmpty()) {
             Definition.empty(query)
         } else {
-            val primary = baseRow ?: exactRow ?: lemmaHit?.row ?: rows.first()
+            // 标题永远跟着「你点的那个词」走。
+            // 以前这里取的是原形条目，于是点「过去式 studied」会跳回 study，看起来像绕了一圈。
+            val primary = exactRow ?: lemmaHit?.row ?: rows.first()
             Definition(
                 query = query,
                 lemma = primary.word,
                 matchedOffline = true,
-                lemmaIsExact = exactRow != null && baseRow == null && normalized == exactRow.word,
+                lemmaIsExact = exactRow != null && normalized == exactRow.word,
+                baseWord = baseRow?.word?.takeIf { it != primary.word },
                 // 音标优先用「点中的那个词形」的，cramming 要读 /ˈkræmɪŋ/ 而不是 cram
                 phonetic = (exactRow?.phonetic?.ifBlank { null }
                     ?: rows.firstNotNullOfOrNull { it.phonetic.ifBlank { null } }),
@@ -127,6 +130,7 @@ class DictionaryRepository(
 
         // 5. 用户自己写的释义：lemm 和原词都认，优先显示
         val note = runCatching { db.userNote(result.lemma) }.getOrNull()
+            ?: result.baseWord?.let { runCatching { db.userNote(it) }.getOrNull() }
             ?: runCatching { db.userNote(normalized) }.getOrNull()
 
         return result.copy(onlineFailed = networkFailed, userNote = note)

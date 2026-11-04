@@ -169,6 +169,26 @@ private fun DefinitionBody(
         Spacer(Modifier.height(8.dp))
     }
 
+    // 合并了原形条目时，给一个「原形」入口（标题仍是点中的词）
+    def.baseWord?.let { base ->
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "原形",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(6.dp))
+            WordChip(base) { onLookupWord(base) }
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "（已合并它的释义）",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
     // 原形提示：点的是 studying，词典给的是 study —— 原形本身可以再点一次
     if (!def.lemmaIsExact && def.lemma.isNotBlank() && !def.lemma.equals(def.query, ignoreCase = true)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

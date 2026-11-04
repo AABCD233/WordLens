@@ -40,6 +40,8 @@ data class Definition(
     val audioUrl: String? = null,
     /** 双语例句（有道在线补的，需要联网） */
     val examples: List<DefExample> = emptyList(),
+    /** 该词形的原形（和 lemma 不同时才非空），供卡片上「原形」入口跳转 */
+    val baseWord: String? = null,
     /** 用户自己写的释义/笔记（本地保存，优先显示） */
     val userNote: String? = null,
     /** 想联网补充但网络不可用（断网/超时），UI 会提示「当前只显示离线内容」 */
