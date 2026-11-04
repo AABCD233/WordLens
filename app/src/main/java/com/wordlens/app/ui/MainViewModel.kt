@@ -108,6 +108,14 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     val packs: StateFlow<List<DictPack>> = _packs.asStateFlow()
 
     /** 下载词典包时的进度文字，null = 空闲 */
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _suggestions = MutableStateFlow<List<String>>(emptyList())
+    val suggestions: StateFlow<List<String>> = _suggestions.asStateFlow()
+
+    private var suggestJob: kotlinx.coroutines.Job? = null
+
     private val _packBusy = MutableStateFlow<String?>(null)
     val packBusy: StateFlow<String?> = _packBusy.asStateFlow()
 
@@ -203,6 +211,20 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         _word.value = WordUi()
     }
 
+    fun renameDocument(id: Long, newTitle: String) {
+        val title = newTitle.trim().take(80)
+        if (title.isEmpty()) {
+            _messages.tryEmit("名字不能为空")
+            return
+        }
+        scope.launch {
+            app.database.updateDocumentTitle(id, title)
+            if (_reader.value.docId == id) _reader.value = _reader.value.copy(title = title)
+            refreshLibrary()
+            _messages.tryEmit("已改名为「$title」")
+        }
+    }
+
     fun deleteDocument(id: Long) {
         scope.launch {
             app.database.document(id)?.imagePath?.let { ImageFiles.deleteQuietly(File(it)) }
@@ -223,6 +245,36 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
             _word.value = _word.value.copy(loading = false, definition = def, query = raw)
             if (settings.value.autoSpeak) app.tts.speak(def.lemma, settings.value.speechRate)
         }
+    }
+
+    /** 直接查词页的输入联想（防抖 180ms，别每敲一个字母就查库） */
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+        suggestJob?.cancel()
+        val q = query.trim()
+        if (q.isEmpty()) {
+            _suggestions.value = emptyList()
+            return
+        }
+        suggestJob = scope.launch {
+            kotlinx.coroutines.delay(180)
+            _suggestions.value = runCatching {
+                app.dictionary.suggest(q.lowercase(), 20)
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    fun clearSearch() {
+        suggestJob?.cancel()
+        _searchQuery.value = ""
+        _suggestions.value = emptyList()
+    }
+
+    /** 直接查词（不依赖 OCR） */
+    fun searchWord(raw: String) {
+        val q = raw.trim()
+        if (q.isEmpty()) return
+        lookupWord(q, null)
     }
 
     fun dismissWord() {

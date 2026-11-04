@@ -100,6 +100,15 @@ class AppDatabase(context: Context) :
         ).useList { it.toDocumentRow() }
     }
 
+    /** 手动改名：只动标题，其余不动 */
+    suspend fun updateDocumentTitle(id: Long, title: String) {
+        write { db ->
+            val v = ContentValues().apply { put("title", title) }
+            db.update("document", v, "id=?", arrayOf(id.toString()))
+            Unit
+        }
+    }
+
     suspend fun deleteDocument(id: Long) = write { db ->
         db.delete("document", "id=?", arrayOf(id.toString()))
     }

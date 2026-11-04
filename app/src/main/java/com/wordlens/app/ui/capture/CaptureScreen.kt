@@ -16,6 +16,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,6 +76,8 @@ fun CaptureScreen(
     dictStatus: DictStatus,
     onOpen: (Long) -> Unit,
     onCaptured: (Uri, java.io.File?) -> Unit,
+    onRename: (DocumentRow) -> Unit,
+    onDelete: (DocumentRow) -> Unit,
     onMessage: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -232,25 +237,60 @@ fun CaptureScreen(
                 modifier = Modifier.padding(bottom = 12.dp)
             ) {
                 items(recent, key = { it.id }) { doc ->
+                    var menuOpen by remember(doc.id) { mutableStateOf(false) }
                     Card(
                         modifier = Modifier.width(190.dp).clickable { onOpen(doc.id) },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Column(Modifier.padding(10.dp)) {
-                            Text(
-                                doc.title,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                lineHeight = 18.sp
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "${doc.wordCount} 词 · ${formatTime(doc.createdAt)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Box(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(10.dp)) {
+                                Text(
+                                    doc.title,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 18.sp,
+                                    modifier = Modifier.padding(end = 18.dp)
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "${doc.wordCount} 词 · ${formatTime(doc.createdAt)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            // 右上角小菜单：改名 / 删除
+                            Box(Modifier.align(Alignment.TopEnd)) {
+                                Text(
+                                    "⋯",
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .clickable { menuOpen = true }
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = menuOpen,
+                                    onDismissRequest = { menuOpen = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("重命名") },
+                                        onClick = {
+                                            menuOpen = false
+                                            onRename(doc)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("删除") },
+                                        onClick = {
+                                            menuOpen = false
+                                            onDelete(doc)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }

@@ -18,13 +18,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import com.wordlens.app.data.db.DictStatus
 import com.wordlens.app.data.tts.TtsEngine
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import com.wordlens.app.ui.reader.WordSheet
+import com.wordlens.app.ui.search.SearchScreen
 import com.wordlens.app.ui.capture.CaptureScreen
 import com.wordlens.app.ui.reader.ReaderScreen
 import com.wordlens.app.ui.settings.SettingsScreen
 import com.wordlens.app.ui.wordbook.ReviewScreen
 import com.wordlens.app.ui.wordbook.WordbookScreen
 
-private enum class Tab { Camera, Wordbook, Settings }
+private enum class Tab { Camera, Search, Wordbook, Settings }
 
 /**
  * 顶层导航：三页（拍照 / 生词本 / 设置）+ 阅读页 + 复习页。
@@ -43,9 +48,15 @@ fun RootScreen(vm: MainViewModel) {
     val ttsState by vm.ttsState.collectAsState()
     val packs by vm.packs.collectAsState()
     val packBusy by vm.packBusy.collectAsState()
+    val searchQuery by vm.searchQuery.collectAsState()
+    val suggestions by vm.suggestions.collectAsState()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Camera) }
     var reviewing by rememberSaveable { mutableStateOf(false) }
+    var renameId by remember { mutableStateOf<Long?>(null) }
+    var renameInitial by remember { mutableStateOf("") }
+    var deleteId by remember { mutableStateOf<Long?>(null) }
+    val clipboard = LocalClipboardManager.current
 
     val readerVisible = reader.loading || reader.docId != 0L || reader.error != null
 
@@ -75,14 +86,13 @@ fun RootScreen(vm: MainViewModel) {
             settings = settings,
             onBack = vm::closeReader,
             onWordTap = vm::lookupWord,
-            onDismissWord = vm::dismissWord,
-            onSpeak = vm::speak,
-            onSaveWord = vm::saveCurrentWord,
-            onAiExplain = vm::requestAiExplain,
             onModeChange = { mode -> vm.updateSettings { it.copy(readerMode = mode) } },
-            onDeleteDoc = reader.docId.takeIf { it != 0L }?.let { id -> { vm.deleteDocument(id) } },
+            onRename = {
+                renameInitial = reader.title
+                renameId = reader.docId
+            },
+            onDeleteDoc = reader.docId.takeIf { it != 0L }?.let { id -> { deleteId = id } },
             onTranslateAll = { vm.translateFullText() },
-            onTranslateExample = { vm.translateExample(it) },
             onMessage = vm::toast
         )
 
@@ -94,6 +104,12 @@ fun RootScreen(vm: MainViewModel) {
                         onClick = { tab = Tab.Camera },
                         icon = { Emoji("📷") },
                         label = { Text("拍照") }
+                    )
+                    NavigationBarItem(
+                        selected = tab == Tab.Search,
+                        onClick = { tab = Tab.Search },
+                        icon = { Emoji("🔍") },
+                        label = { Text("查词") }
                     )
                     NavigationBarItem(
                         selected = tab == Tab.Wordbook,
@@ -117,6 +133,22 @@ fun RootScreen(vm: MainViewModel) {
                         dictStatus = dictStatus,
                         onOpen = vm::openDocument,
                         onCaptured = vm::analyzeImage,
+                        onRename = { doc ->
+                            renameInitial = doc.title
+                            renameId = doc.id
+                        },
+                        onDelete = { doc -> deleteId = doc.id },
+                        onMessage = vm::toast
+                    )
+
+                    Tab.Search -> SearchScreen(
+                        query = searchQuery,
+                        suggestions = suggestions,
+                        dictReady = dictStatus == DictStatus.READY,
+                        dictWords = dictWords,
+                        onQueryChange = vm::onSearchQueryChange,
+                        onSubmit = { q -> vm.searchWord(q) },
+                        onPick = { w -> vm.searchWord(w) },
                         onMessage = vm::toast
                     )
 
@@ -152,6 +184,47 @@ fun RootScreen(vm: MainViewModel) {
                 }
             }
         }
+    }
+
+    // 词卡：所有页面共用（拍照阅读、直接查词都能弹）
+    if (word.visible) {
+        WordSheet(
+            word = word,
+            settings = settings,
+            onDismiss = vm::dismissWord,
+            onSpeak = vm::speak,
+            onSave = vm::saveCurrentWord,
+            onAiExplain = vm::requestAiExplain,
+            onTranslateExample = { example -> vm.translateExample(example) },
+            onCopy = { text ->
+                clipboard.setText(AnnotatedString(text))
+                vm.toast("已复制")
+            }
+        )
+    }
+
+    renameId?.let { id ->
+        RenameDialog(
+            initial = renameInitial,
+            onDismiss = { renameId = null },
+            onConfirm = { newTitle ->
+                vm.renameDocument(id, newTitle)
+                renameId = null
+            }
+        )
+    }
+
+    deleteId?.let { id ->
+        ConfirmDeleteDialog(
+            title = "删除这条识别记录？",
+            message = "照片和识别结果会一起删掉，删了没法恢复。生词本里的单词不受影响。",
+            onDismiss = { deleteId = null },
+            onConfirm = {
+                vm.deleteDocument(id)
+                if (reader.docId == id) vm.closeReader()
+                deleteId = null
+            }
+        )
     }
 }
 
