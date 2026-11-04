@@ -209,7 +209,11 @@ class TranslateApi(
  */
 class YoudaoDictApi(private val cache: Cache) {
 
-    data class Entry(val phonetic: String?, val zhLines: List<String>)
+    data class Entry(
+        val phonetic: String?,
+        val zhLines: List<String>,
+        val examples: List<com.wordlens.app.data.model.DefExample> = emptyList()
+    )
 
     suspend fun lookup(word: String): Entry? = withContext(Dispatchers.IO) {
         val key = "yd:${word.lowercase()}"
@@ -238,6 +242,20 @@ class YoudaoDictApi(private val cache: Cache) {
             val text = item.optString(0, "").trim()
             if (text.isNotBlank()) lines += text
         }
-        if (lines.isEmpty() && phone == null) null else Entry(phone, lines)
+        // 双语例句：blng_sents_part.sentence-pair[]，自带中文翻译
+        val examples = ArrayList<com.wordlens.app.data.model.DefExample>()
+        val pairs = root.optJSONObject("blng_sents_part")?.optJSONArray("sentence-pair")
+        if (pairs != null) {
+            for (i in 0 until pairs.length().coerceAtMost(4)) {
+                val p = pairs.optJSONObject(i) ?: continue
+                val en = p.optString("sentence", "").trim()
+                val zh = p.optString("sentence-translation", "").trim()
+                if (en.isNotBlank()) {
+                    examples += com.wordlens.app.data.model.DefExample(en, zh.ifBlank { null })
+                }
+            }
+        }
+        if (lines.isEmpty() && phone == null && examples.isEmpty()) null
+        else Entry(phone, lines, examples)
     }.getOrNull()
 }

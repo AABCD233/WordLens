@@ -224,6 +224,32 @@ private fun DefinitionBody(
         }
     }
 
+    // 双语例句（有道在线补的）
+    if (def.examples.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        SectionTitle("例句")
+        def.examples.take(4).forEach { ex ->
+            Row(verticalAlignment = Alignment.Top) {
+                Text(
+                    ex.en,
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { onSpeak(ex.en) }) { Text("读", fontSize = 12.sp) }
+            }
+            ex.zh?.let { zh ->
+                Text(
+                    zh,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 19.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+            }
+        }
+    }
+
     // 词形变化
     if (def.inflections.isNotEmpty()) {
         Spacer(Modifier.height(6.dp))

@@ -91,7 +91,7 @@ fun SettingsScreen(
 
             ToggleRow(
                 "有道词典在线补中文",
-                "离线释义偏薄时再问一次有道（需联网）",
+                "补中文释义和双语例句，离线释义偏薄时很有用（需联网）",
                 settings.useYoudaoOnlineDict
             ) { checked -> onUpdate { it.copy(useYoudaoOnlineDict = checked) } }
 
@@ -258,7 +258,7 @@ fun SettingsScreen(
         }
 
         // ---------- 关于 ----------
-        SectionCard(title = "关于", subtitle = "词镜 WordLens 1.3.1", defaultExpanded = false) {
+        SectionCard(title = "关于", subtitle = "词镜 WordLens " + com.wordlens.app.BuildConfig.VERSION_NAME, defaultExpanded = false) {
             Text(
                 "照片只在手机本地识别（ML Kit 端侧模型），不上传。\n" +
                     "词典数据来自开源项目 ECDICT（MIT）。",

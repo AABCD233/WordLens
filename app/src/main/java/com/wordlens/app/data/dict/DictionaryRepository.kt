@@ -3,6 +3,7 @@ package com.wordlens.app.data.dict
 import com.wordlens.app.data.db.AppDatabase
 import com.wordlens.app.data.db.DictStore
 import com.wordlens.app.data.model.Definition
+import com.wordlens.app.data.model.DictRow
 import com.wordlens.app.data.model.DictText
 import com.wordlens.app.data.model.WordNormalizer
 import com.wordlens.app.data.settings.AppSettings
@@ -38,44 +39,69 @@ class DictionaryRepository(
 
         val s = settings.state.value
 
-        // 1. 离线
-        val offlineHit = runCatching { dictStore.lookupWithLemma(query) }.getOrNull()
-        var result = if (offlineHit != null) {
+        // 1. 离线：精确命中 + 原形条目一起取
+        //
+        // 为什么两条都要：ECDICT 里派生词常有自己的条目，但信息不全。
+        // 比如 cramming 这条，中文只写了名词义（n. 塞满…），英文释义却是 v. 的，
+        // 而完整的 vt./vi./n. 都在 cram 那条里。只取一条就会「中文说 n、英文说 v」。
+        val exactRow = runCatching { dictStore.lookup(normalized) }.getOrNull()
+        val lemmaHit = if (exactRow == null) {
+            runCatching { dictStore.lookupWithLemma(query) }.getOrNull()
+        } else null
+        val baseRow = exactRow?.let { row ->
+            baseWordOf(row.exchange)
+                ?.takeIf { it != row.word && isInflectionOf(normalized, it) }
+                ?.let { base -> runCatching { dictStore.lookup(base) }.getOrNull() }
+        }
+        val rows = ArrayList<DictRow>(3)
+        if (baseRow != null) rows += baseRow      // 原形条目更全，放前面
+        if (exactRow != null) rows += exactRow
+        if (exactRow == null && lemmaHit != null && rows.isEmpty()) rows += lemmaHit.row
+
+        var result = if (rows.isEmpty()) {
+            Definition.empty(query)
+        } else {
+            val primary = baseRow ?: exactRow ?: lemmaHit?.row ?: rows.first()
             Definition(
                 query = query,
-                lemma = offlineHit.row.word,
+                lemma = primary.word,
                 matchedOffline = true,
-                lemmaIsExact = offlineHit.isOriginal,
-                phonetic = offlineHit.row.phonetic.ifBlank { null },
-                zhLines = DictText.zhLines(offlineHit.row.translation),
-                enMeanings = DictText.enMeanings(offlineHit.row.definition),
-                inflections = DictText.inflections(offlineHit.row.exchange),
-                tags = tagNames(offlineHit.row.tag),
-                collins = offlineHit.row.collins,
-                oxford = offlineHit.row.oxford == 1,
-                freq = offlineHit.row.freq,
+                lemmaIsExact = exactRow != null && baseRow == null && normalized == exactRow.word,
+                // 音标优先用「点中的那个词形」的，cramming 要读 /ˈkræmɪŋ/ 而不是 cram
+                phonetic = (exactRow?.phonetic?.ifBlank { null }
+                    ?: rows.firstNotNullOfOrNull { it.phonetic.ifBlank { null } }),
+                zhLines = rows.flatMap { DictText.zhLines(it.translation) }.distinct(),
+                enMeanings = mergeEnMeanings(rows.map { DictText.enMeanings(it.definition) }),
+                inflections = rows.map { DictText.inflections(it.exchange) }.firstOrNull { it.isNotEmpty() }
+                    ?: emptyList(),
+                tags = rows.flatMap { tagNames(it.tag) }.distinct(),
+                collins = rows.maxOfOrNull { it.collins } ?: 0,
+                oxford = rows.any { it.oxford == 1 },
+                freq = rows.map { it.freq }.filter { it > 0 }.minOrNull() ?: 0,
                 sources = setOf(SOURCE_OFFLINE)
             )
-        } else Definition.empty(query)
+        }
 
-        // 2. 免费英文词典（离线没命中、或想要例句时）
-        if (s.useFreeDictionaryApi && (!result.matchedOffline || result.enMeanings.isEmpty())) {
+        // 2. 免费英文词典：补音标/音频，并把例句合并进已有的英文释义
+        if (s.useFreeDictionaryApi) {
             runCatching { freeApi.lookup(result.lemma) }.getOrNull()?.let { entry ->
                 result = result.copy(
                     phonetic = result.phonetic ?: entry.phonetic,
                     audioUrl = entry.audioUrl,
-                    enMeanings = if (result.enMeanings.isEmpty()) entry.meanings else result.enMeanings,
+                    enMeanings = if (result.enMeanings.isEmpty()) entry.meanings
+                    else mergeExamples(result.enMeanings, entry.meanings),
                     sources = result.sources + SOURCE_FREE_API
                 )
             }
         }
 
-        // 3. 有道词典网页接口：离线没中文时补一份（需用户手动打开）
-        if (s.useYoudaoOnlineDict && result.zhLines.isEmpty()) {
+        // 3. 有道在线词典：补中文 + 双语例句（用户手动打开才联网）
+        if (s.useYoudaoOnlineDict) {
             runCatching { youdaoDict.lookup(result.lemma) }.getOrNull()?.let { entry ->
                 result = result.copy(
                     phonetic = result.phonetic ?: entry.phonetic,
-                    zhLines = entry.zhLines,
+                    zhLines = if (result.zhLines.isEmpty()) entry.zhLines else result.zhLines,
+                    examples = if (entry.examples.isEmpty()) result.examples else entry.examples,
                     sources = result.sources + SOURCE_YOUDAO
                 )
             }
@@ -163,6 +189,77 @@ class DictionaryRepository(
     suspend fun dictWordCount(): Int = runCatching { dictStore.totalWords() }.getOrDefault(0)
 
     // ---------- helpers ----------
+
+    /**
+     * 判断 form 是不是 base 的派生形式。
+     *
+     * 为什么要判断：ECDICT 的 exchange 会把不规则变化也写成 `0:原形`，
+     * 比如 better → good。那种情况把 good 的义项（n. 善行）合并进 better 反而是噪音。
+     */
+    private fun isInflectionOf(form: String, base: String): Boolean {
+        if (form == base) return false
+        if (form.startsWith(base)) return true                       // cram -> cramming
+        val stem = base.dropLast(1)
+        if (stem.length >= 3 && form.startsWith(stem)) return true   // make -> making / wolf -> wolves
+        if (base.endsWith("y") && form.startsWith(base.dropLast(1) + "i")) return true // carry -> carried
+        return false
+    }
+
+    /** exchange 里的 `0:cram` 就是原形 */
+    private fun baseWordOf(exchange: String): String? {
+        if (exchange.isBlank()) return null
+        for (token in exchange.split('/', '|')) {
+            val idx = token.indexOf(':')
+            if (idx <= 0) continue
+            if (token.substring(0, idx).trim() != "0") continue
+            val value = token.substring(idx + 1).trim().lowercase()
+            if (value.isNotEmpty() && value.all { it in 'a'..'z' || it == '-' || it == '\'' }) return value
+        }
+        return null
+    }
+
+    /** 多个条目的英文释义按词性合并，重复的释义去掉 */
+    private fun mergeEnMeanings(groups: List<List<com.wordlens.app.data.model.EnMeaning>>): List<com.wordlens.app.data.model.EnMeaning> {
+        val out = LinkedHashMap<String, MutableList<com.wordlens.app.data.model.EnDefinition>>()
+        for (group in groups) {
+            for (meaning in group) {
+                val bucket = out.getOrPut(meaning.partOfSpeech) { ArrayList() }
+                for (d in meaning.definitions) {
+                    if (bucket.none { it.text.equals(d.text, ignoreCase = true) }) bucket += d
+                }
+            }
+        }
+        return out.map { (pos, defs) ->
+            com.wordlens.app.data.model.EnMeaning(partOfSpeech = pos, definitions = defs)
+        }
+    }
+
+    /** 自己没例句时，把免费词典给的例句按词性塞进去 */
+    private fun mergeExamples(
+        mine: List<com.wordlens.app.data.model.EnMeaning>,
+        theirs: List<com.wordlens.app.data.model.EnMeaning>
+    ): List<com.wordlens.app.data.model.EnMeaning> {
+        val pool = theirs.flatMap { it.definitions }.mapNotNull { d -> d.example?.let { it to d } }
+            .toMutableList()
+        if (pool.isEmpty()) return mine
+        return mine.map { meaning ->
+            meaning.copy(
+                definitions = meaning.definitions.map { d ->
+                    if (d.example != null) d
+                    else {
+                        val hit = pool.firstOrNull { (_, src) ->
+                            src.text.contains(d.text.take(24), ignoreCase = true) ||
+                                d.text.contains(src.text.take(24), ignoreCase = true)
+                        } ?: pool.firstOrNull()
+                        if (hit != null) {
+                            pool.remove(hit)
+                            d.copy(example = hit.first)
+                        } else d
+                    }
+                }
+            )
+        }
+    }
 
     private val TAG_ZH = mapOf(
         "zk" to "中考", "gk" to "高考", "cet4" to "四级", "cet6" to "六级", "ky" to "考研",

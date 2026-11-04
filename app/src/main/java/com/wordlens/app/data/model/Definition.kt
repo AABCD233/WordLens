@@ -7,6 +7,12 @@ data class EnDefinition(
     val synonyms: List<String> = emptyList()
 )
 
+/** 一条双语例句 */
+data class DefExample(
+    val en: String,
+    val zh: String? = null
+)
+
 data class EnMeaning(
     val partOfSpeech: String,
     val definitions: List<EnDefinition>
@@ -32,6 +38,8 @@ data class Definition(
     val oxford: Boolean = false,
     val freq: Int = 0,
     val audioUrl: String? = null,
+    /** 双语例句（有道在线补的，需要联网） */
+    val examples: List<DefExample> = emptyList(),
     val aiText: String? = null,
     val sources: Set<String> = emptySet()
 ) {
