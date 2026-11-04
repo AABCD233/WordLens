@@ -250,6 +250,9 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         scope.launch {
             val def = runCatching { app.dictionary.lookup(raw) }.getOrElse { Definition.empty(raw) }
             _word.value = _word.value.copy(loading = false, definition = def, query = raw)
+            if (def.onlineFailed) {
+                _messages.tryEmit("没联网，只显示了离线释义")
+            }
             if (settings.value.autoSpeak) app.tts.speak(def.lemma, settings.value.speechRate)
         }
     }

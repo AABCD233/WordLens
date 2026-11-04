@@ -9,6 +9,13 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +60,17 @@ fun RootScreen(vm: MainViewModel) {
 
     var tab by rememberSaveable { mutableStateOf(Tab.Camera) }
     var reviewing by rememberSaveable { mutableStateOf(false) }
+    // 全局提示条：messages 以前根本没人收集，所以所有提示都发进了虚空
+    var toast by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        vm.messages.collect { msg -> toast = msg }
+    }
+    LaunchedEffect(toast) {
+        val current = toast ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(2200)
+        if (toast == current) toast = null
+    }
+
     var renameId by remember { mutableStateOf<Long?>(null) }
     var renameInitial by remember { mutableStateOf("") }
     var deleteId by remember { mutableStateOf<Long?>(null) }
@@ -227,6 +245,28 @@ fun RootScreen(vm: MainViewModel) {
                 deleteId = null
             }
         )
+    }
+
+    // 提示条画在最上层：词卡、对话框之上都能看见；本身不消费触摸事件
+    toast?.let { msg ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(bottom = 96.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shape = RoundedCornerShape(50),
+                shadowElevation = 8.dp
+            ) {
+                Text(
+                    msg,
+                    fontSize = 13.sp,
+                    maxLines = 3,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp)
+                )
+            }
+        }
     }
 }
 

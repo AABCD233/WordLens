@@ -82,9 +82,13 @@ class DictionaryRepository(
             )
         }
 
+        var networkFailed = false
+
         // 2. 免费英文词典：补音标/音频，并把例句合并进已有的英文释义
         if (s.useFreeDictionaryApi) {
-            runCatching { freeApi.lookup(result.lemma) }.getOrNull()?.let { entry ->
+            val call = runCatching { freeApi.lookup(result.lemma) }
+            if (call.isNetworkError()) networkFailed = true
+            call.getOrNull()?.let { entry ->
                 result = result.copy(
                     phonetic = result.phonetic ?: entry.phonetic,
                     audioUrl = entry.audioUrl,
@@ -97,7 +101,9 @@ class DictionaryRepository(
 
         // 3. 有道在线词典：补中文 + 双语例句（用户手动打开才联网）
         if (s.useYoudaoOnlineDict) {
-            runCatching { youdaoDict.lookup(result.lemma) }.getOrNull()?.let { entry ->
+            val call = runCatching { youdaoDict.lookup(result.lemma) }
+            if (call.isNetworkError()) networkFailed = true
+            call.getOrNull()?.let { entry ->
                 result = result.copy(
                     phonetic = result.phonetic ?: entry.phonetic,
                     zhLines = if (result.zhLines.isEmpty()) entry.zhLines else result.zhLines,
@@ -109,7 +115,9 @@ class DictionaryRepository(
 
         // 4. 还是没有中文 —— 走用户选的翻译引擎兜底
         if (s.useMachineTranslate && result.zhLines.isEmpty()) {
-            translateApi.translate(result.lemma).getOrNull()?.let { zh ->
+            val call = translateApi.translate(result.lemma)
+            if (call.isNetworkError()) networkFailed = true
+            call.getOrNull()?.let { zh ->
                 result = result.copy(
                     zhMachine = zh,
                     sources = result.sources + engineSourceName(s)
@@ -117,7 +125,17 @@ class DictionaryRepository(
             }
         }
 
-        return result
+        return result.copy(onlineFailed = networkFailed)
+    }
+
+    /** 只有「连不上」才算断网提示；HTTP 404 之类的业务失败不打扰用户 */
+    private fun Result<*>.isNetworkError(): Boolean {
+        val e = exceptionOrNull() ?: return false
+        return e is java.net.UnknownHostException ||
+            e is java.net.ConnectException ||
+            e is java.net.SocketTimeoutException ||
+            (e.cause is java.net.UnknownHostException) ||
+            (e.cause is java.net.ConnectException)
     }
 
     /**

@@ -147,6 +147,22 @@ private fun DefinitionBody(
     onTranslateExample: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
+    // 断网提示：只影响「在线补充」这一层，离线释义照常可用
+    if (def.onlineFailed) {
+        Surface(
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                "没连上网络，现在只显示离线词典的内容。联网后可以补英文例句和双语例句。",
+                style = MaterialTheme.typography.labelSmall,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+
     // 词形还原提示：点的是 studying，词典给的是 study
     if (!def.lemmaIsExact && def.lemma.isNotBlank() && !def.lemma.equals(def.query, ignoreCase = true)) {
         Text(
