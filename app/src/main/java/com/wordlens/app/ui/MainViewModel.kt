@@ -5,7 +5,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.wordlens.app.AppContainer
 import com.wordlens.app.data.db.DocumentRow
+import com.wordlens.app.data.dict.AiKind
 import com.wordlens.app.data.db.DictPack
+import com.wordlens.app.data.db.DictPackManager
 import com.wordlens.app.data.db.DictStatus
 import com.wordlens.app.data.db.SavedWord
 import com.wordlens.app.data.model.Definition
@@ -42,7 +44,10 @@ data class ReaderUi(
     /** 全文译文；null 表示还没翻过 */
     val zhText: String? = null,
     val zhLoading: Boolean = false,
-    val zhError: String? = null
+    val zhError: String? = null,
+    val aiArticle: String? = null,
+    val aiArticleLoading: Boolean = false,
+    val aiArticleError: String? = null
 )
 
 data class WordUi(
@@ -54,6 +59,8 @@ data class WordUi(
     val aiText: String? = null,
     val aiLoading: Boolean = false,
     val aiError: String? = null,
+    /** 当前 AI 结果是哪个维度：explain / examples / collocations */
+    val aiKind: String = "",
     /** 例句译文：key 是原文 */
     val exampleZh: Map<String, String> = emptyMap(),
     val translatingExample: String? = null
@@ -297,17 +304,38 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         }
     }
 
-    fun requestAiExplain() {
+    fun requestAiExplain(kind: String = AiKind.EXPLAIN.id) {
         val current = _word.value
         val word = current.definition?.lemma ?: current.query
         if (word.isBlank()) return
-        _word.value = current.copy(aiLoading = true, aiError = null)
+        val k = AiKind.values().firstOrNull { it.id == kind } ?: AiKind.EXPLAIN
+        _word.value = current.copy(aiLoading = true, aiError = null, aiKind = k.id, aiText = null)
         scope.launch {
-            val result = app.dictionary.aiExplain(word, current.sentence)
+            val result = app.dictionary.aiExplain(word, current.sentence, k)
             _word.value = _word.value.copy(
                 aiLoading = false,
                 aiText = result.getOrNull(),
                 aiError = result.exceptionOrNull()?.message
+            )
+        }
+    }
+
+    /** 整篇 AI 精读 */
+    fun analyzeArticle(force: Boolean = false) {
+        val state = _reader.value
+        if (state.text.isBlank()) {
+            _messages.tryEmit("还没有识别到文字")
+            return
+        }
+        if (state.aiArticleLoading) return
+        if (!force && !state.aiArticle.isNullOrBlank()) return
+        _reader.value = state.copy(aiArticleLoading = true, aiArticleError = null)
+        scope.launch {
+            val result = app.dictionary.aiAnalyzeArticle(state.text)
+            val cur = _reader.value
+            _reader.value = result.fold(
+                onSuccess = { cur.copy(aiArticleLoading = false, aiArticle = it, aiArticleError = null) },
+                onFailure = { cur.copy(aiArticleLoading = false, aiArticleError = it.message ?: "AI 调用失败") }
             )
         }
     }
@@ -466,6 +494,30 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         scope.launch {
             _packs.value = app.dictPacks.installed()
             _dictWords.value = app.dictionary.dictWordCount()
+        }
+    }
+
+    /** 一键下载官方全量包：多个加速镜像依次尝试 */
+    fun installOfficialPack() {
+        if (_packBusy.value != null) return
+        _packBusy.value = "正在连接…"
+        scope.launch {
+            val result = runCatching {
+                app.dictPacks.install(DictPackManager.OFFICIAL_PACK_MIRRORS, "全量词典包") { done ->
+                    _packBusy.value = if (done >= 0) {
+                        "已下载 " + String.format("%.1f MB", done / 1e6)
+                    } else {
+                        "第 ${-done} 个镜像失败，换源重试…"
+                    }
+                }
+            }
+            _packBusy.value = null
+            result.onSuccess { pack ->
+                refreshPacks()
+                _messages.tryEmit("已安装并切换到「${pack.name}」（${pack.words} 词）")
+            }.onFailure { t ->
+                _messages.tryEmit("下载失败：" + (t.message ?: t.javaClass.simpleName))
+            }
         }
     }
 

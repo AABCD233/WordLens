@@ -148,53 +148,77 @@ class FreeDictionaryApi(private val cache: Cache) {
     }
 }
 
-/** OpenAI 兼容的对话接口，做「AI 详解」 */
+/** AI 请求的三种维度 */
+enum class AiKind(val id: String, val label: String) {
+    EXPLAIN("explain", "AI 详解"),
+    EXAMPLES("examples", "AI 例句"),
+    COLLOCATIONS("collocations", "AI 搭配")
+}
+
+/** OpenAI 兼容的对话接口：词卡解析 + 整篇精读 */
 class LlmClient(private val settings: com.wordlens.app.data.settings.AppSettings) {
 
-    suspend fun explain(word: String, sentence: String?): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun explain(
+        word: String,
+        sentence: String?,
+        kind: AiKind = AiKind.EXPLAIN
+    ): Result<String> = withContext(Dispatchers.IO) {
         val s = settings.state.value
         if (!s.aiReady) return@withContext Result.failure(IllegalStateException("未配置 AI 接口"))
-        val base = s.aiBaseUrl.trimEnd('/')
-        val url = "$base/chat/completions"
+        val system = when (kind) {
+            AiKind.EXPLAIN ->
+                "你是英语老师。用中文讲清这个英文词在句子里的意思，格式固定四段（每段一行，前缀用【】：" +
+                    "【音标与词性】【中文释义】【例句】(给 1 个带翻译的新例句)【近义与搭配】。只讲这个单词本身，不寒暄。"
+            AiKind.EXAMPLES ->
+                "你是英语老师。为这个英文词造 3 个难度递进、场景不同的例句，" +
+                    "每行格式：英文例句 —— 中文翻译。最后一行用「【搭配】」列出 2-3 个高频搭配。不要解释词义。"
+            AiKind.COLLOCATIONS ->
+                "你是英语老师。只讲这个英文词的用法：先列 4-6 个高频搭配（动词/介词/名词组合），" +
+                    "每个给一句极短的中文说明；再给 1-2 组易混词辨析（和哪个词容易混、区别是什么）。格式紧凑，不要例句。"
+        }
+        ask(system, buildString {
+            append("单词：").append(word)
+            if (!sentence.isNullOrBlank()) append("\n上下文：").append(sentence.take(240))
+        }, 700)
+    }
+
+    /** 整篇精读：主旨 + 重点词 + 难句 + 复习建议 */
+    suspend fun analyzeArticle(text: String): Result<String> = withContext(Dispatchers.IO) {
+        val s = settings.state.value
+        if (!s.aiReady) return@withContext Result.failure(IllegalStateException("未配置 AI 接口"))
+        val system =
+            "你是英语精读老师。读用户给的英文短文，用中文输出精读笔记，严格按下面的格式，" +
+                "总长度控制在 600 字内，不要复述原文，不要寒暄：\n" +
+                "【主旨】一句话概括这段在讲什么。\n" +
+                "【重点词】挑 4-6 个对理解最关键的词，每行「单词 词性 中文 — 为什么重要(10 字内)」。\n" +
+                "【难句】挑 2-3 句结构复杂的，每句先给中文意思，再用一句话说清结构。\n" +
+                "【复习建议】一句话，说读完这段该重点记什么。"
+        ask(system, text.take(3000), 900)
+    }
+
+    private fun ask(system: String, user: String, maxTokens: Int): Result<String> = runCatching {
+        val s = settings.state.value
         val payload = JSONObject().apply {
             put("model", s.aiModel)
             put("temperature", 0.3)
-            put("max_tokens", 600)
+            put("max_tokens", maxTokens)
             put(
                 "messages",
                 JSONArray().apply {
-                    put(
-                        JSONObject().put(
-                            "role", "system"
-                        ).put(
-                            "content",
-                            "你是英语老师。用中文讲清这个英文词在句子里的意思，" +
-                                "格式固定四段（每段一行，前缀用【】：【音标与词性】【中文释义】【例句】(给 1 个带翻译的新例句)" +
-                                "【近义与搭配】。只讲这个单词本身，不寒暄。"
-                        )
-                    )
-                    put(
-                        JSONObject().put("role", "user").put(
-                            "content",
-                            buildString {
-                                append("单词：").append(word)
-                                if (!sentence.isNullOrBlank()) append("\n上下文：").append(sentence.take(240))
-                            }
-                        )
-                    )
+                    put(JSONObject().put("role", "system").put("content", system))
+                    put(JSONObject().put("role", "user").put("content", user))
                 }
             )
         }
-        runCatching {
-            val body = Http.postJson(
-                url, payload.toString(),
-                headers = mapOf("Authorization" to "Bearer ${s.aiApiKey}"),
-                timeoutMs = 45000
-            )
-            JSONObject(body)
-                .getJSONArray("choices").getJSONObject(0)
-                .getJSONObject("message").getString("content").trim()
-        }
+        val body = Http.postJson(
+            s.aiBaseUrl.trimEnd('/') + "/chat/completions",
+            payload.toString(),
+            headers = mapOf("Authorization" to "Bearer ${s.aiApiKey}"),
+            timeoutMs = 60000
+        )
+        JSONObject(body)
+            .getJSONArray("choices").getJSONObject(0)
+            .getJSONObject("message").getString("content").trim()
     }
 }
 

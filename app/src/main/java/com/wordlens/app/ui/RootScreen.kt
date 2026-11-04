@@ -93,6 +93,7 @@ fun RootScreen(vm: MainViewModel) {
             },
             onDeleteDoc = reader.docId.takeIf { it != 0L }?.let { id -> { deleteId = id } },
             onTranslateAll = { vm.translateFullText() },
+            onAnalyze = { vm.analyzeArticle(force = reader.aiArticle != null) },
             onMessage = vm::toast
         )
 
@@ -177,6 +178,7 @@ fun RootScreen(vm: MainViewModel) {
                         activePackId = settings.activePackId,
                         packBusy = packBusy,
                         onInstallPack = vm::installPack,
+                        onInstallOfficial = vm::installOfficialPack,
                         onActivatePack = vm::activatePack,
                         onDeletePack = vm::deletePack,
                         onMessage = vm::toast
@@ -194,7 +196,7 @@ fun RootScreen(vm: MainViewModel) {
             onDismiss = vm::dismissWord,
             onSpeak = vm::speak,
             onSave = vm::saveCurrentWord,
-            onAiExplain = vm::requestAiExplain,
+            onAiExplain = { kind -> vm.requestAiExplain(kind) },
             onTranslateExample = { example -> vm.translateExample(example) },
             onCopy = { text ->
                 clipboard.setText(AnnotatedString(text))

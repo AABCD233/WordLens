@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -84,6 +85,7 @@ fun ReaderScreen(
     onRename: () -> Unit,
     onDeleteDoc: (() -> Unit)?,
     onTranslateAll: () -> Unit,
+    onAnalyze: () -> Unit,
     onMessage: (String) -> Unit
 ) {
     // 在 Composable 作用域里先取出剪贴板，才能在下面的 onClick lambda 里用
@@ -126,6 +128,12 @@ fun ReaderScreen(
                         OutlinedButton(onClick = onBack) { Text("回到拍照") }
                     }
                 }
+
+                settings.readerMode == "ai" -> AiArticleView(
+                    state = state,
+                    aiReady = settings.aiReady,
+                    onAnalyze = onAnalyze
+                )
 
                 settings.readerMode == "zh" -> ZhTextView(
                     state = state,
@@ -197,6 +205,69 @@ private fun ZhTextView(state: ReaderUi, onTranslate: () -> Unit, onRetry: () -> 
 }
 
 @Composable
+private fun AiArticleView(state: ReaderUi, aiReady: Boolean, onAnalyze: () -> Unit) {
+    val article = state.aiArticle
+    when {
+        !aiReady -> Centered {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(28.dp)
+            ) {
+                Text(
+                    "AI 精读需要先配置接口：设置 → AI → 填 Base URL、模型名和 Key。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+            }
+        }
+
+        state.aiArticleLoading -> Centered {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(12.dp))
+                Text("AI 正在精读这一段…", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        !article.isNullOrBlank() -> Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                article,
+                style = MaterialTheme.typography.bodyMedium,
+                lineHeight = 23.sp
+            )
+            Spacer(Modifier.height(14.dp))
+            OutlinedButton(onClick = onAnalyze) { Text("重新精读") }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        else -> Centered {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(28.dp)
+            ) {
+                Text(
+                    if (state.aiArticleError != null) "AI 精读失败：${state.aiArticleError}"
+                    else "让 AI 给这一段做精读笔记：主旨、重点词、难句拆解",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+                Spacer(Modifier.height(14.dp))
+                Button(onClick = onAnalyze) {
+                    Text(if (state.aiArticleError != null) "重试" else "开始精读")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun Centered(content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
 }
@@ -229,11 +300,15 @@ private fun ReaderHeader(
                 if (onDeleteDoc != null) TextButton(onClick = onDeleteDoc) { Text("删除") }
             }
             Spacer(Modifier.height(2.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState())
+            ) {
                 ModeChip("单词视图", mode == "words") { onModeChange("words") }
                 ModeChip("原图对照", mode == "image", enabled = hasImage) { onModeChange("image") }
                 ModeChip("纯文本", mode == "text") { onModeChange("text") }
                 ModeChip("译文", mode == "zh") { onModeChange("zh") }
+                ModeChip("AI 精读", mode == "ai") { onModeChange("ai") }
             }
         }
     }

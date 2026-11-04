@@ -74,6 +74,33 @@ class DictPackManager(
         url: String,
         name: String,
         onProgress: (Long) -> Unit = {}
+    ): DictPack = install(listOf(url), name, onProgress)
+
+    /**
+     * 依次尝试多个地址，前一个失败就换下一个。
+     * 国内直连 GitHub Release 经常断，官方包会同时给加速镜像（gh-proxy 之类）。
+     */
+    suspend fun install(
+        urls: List<String>,
+        name: String,
+        onProgress: (Long) -> Unit = {}
+    ): DictPack {
+        var last: Throwable? = null
+        for ((i, u) in urls.withIndex()) {
+            try {
+                return installOne(u, name, onProgress)
+            } catch (t: Throwable) {
+                last = t
+                onProgress(-(i + 1))   // 负数表示「第 i+1 个源失败，正在换源」
+            }
+        }
+        throw last ?: IllegalStateException("没有可用的下载地址")
+    }
+
+    private suspend fun installOne(
+        url: String,
+        name: String,
+        onProgress: (Long) -> Unit
     ): DictPack = withContext(Dispatchers.IO) {
         val trimmed = url.trim()
         require(trimmed.startsWith("http://") || trimmed.startsWith("https://")) { "网址要以 http(s):// 开头" }
@@ -195,5 +222,20 @@ class DictPackManager(
 
     companion object {
         const val BUILTIN_ID = "builtin"
+
+        /** 官方全量词典包的原始地址 */
+        const val OFFICIAL_PACK_URL =
+            "https://github.com/AABCD233/WordLens/releases/download/dict-v1/dict-full.db.gz"
+
+        /**
+         * 按「先快后稳」排的候选源：gh-proxy 系镜像走一遍，最后才直连 GitHub。
+         * 任何一个成功就用它。
+         */
+        val OFFICIAL_PACK_MIRRORS: List<String> = listOf(
+            "https://v4.gh-proxy.org/" + OFFICIAL_PACK_URL,
+            "https://ghfast.top/" + OFFICIAL_PACK_URL,
+            "https://gh-proxy.com/" + OFFICIAL_PACK_URL,
+            OFFICIAL_PACK_URL
+        )
     }
 }

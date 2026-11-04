@@ -145,9 +145,15 @@ class DictionaryRepository(
     private fun engineSourceName(s: com.wordlens.app.data.settings.Settings): String =
         "翻译·" + TranslateEngine.of(s.translateEngine).label
 
-    /** 「AI 详解」按需触发 */
-    suspend fun aiExplain(word: String, sentence: String?): Result<String> =
-        llm.explain(word, sentence)
+    /** 「AI 详解 / 例句 / 搭配」按需触发 */
+    suspend fun aiExplain(
+        word: String,
+        sentence: String?,
+        kind: AiKind = AiKind.EXPLAIN
+    ): Result<String> = llm.explain(word, sentence, kind)
+
+    /** 整篇 AI 精读 */
+    suspend fun aiAnalyzeArticle(text: String): Result<String> = llm.analyzeArticle(text)
 
     suspend fun suggest(prefix: String, limit: Int = 20): List<String> =
         runCatching {

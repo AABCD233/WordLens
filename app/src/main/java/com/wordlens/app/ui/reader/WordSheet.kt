@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.wordlens.app.ui.reader
 
 import androidx.compose.foundation.background
@@ -38,6 +40,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.FlowRow
+import com.wordlens.app.data.dict.AiKind
 import com.wordlens.app.data.model.Definition
 import com.wordlens.app.data.settings.Settings
 import com.wordlens.app.ui.WordUi
@@ -53,7 +57,7 @@ fun WordSheet(
     onDismiss: () -> Unit,
     onSpeak: (String) -> Unit,
     onSave: () -> Unit,
-    onAiExplain: () -> Unit,
+    onAiExplain: (String) -> Unit,
     onTranslateExample: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
@@ -139,7 +143,7 @@ private fun DefinitionBody(
     word: WordUi,
     onSpeak: (String) -> Unit,
     onSave: () -> Unit,
-    onAiExplain: () -> Unit,
+    onAiExplain: (String) -> Unit,
     onTranslateExample: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
@@ -251,12 +255,22 @@ private fun DefinitionBody(
         }
     }
 
-    // AI 详解
+    // AI：三个维度
     if (settings.aiReady) {
         Spacer(Modifier.height(12.dp))
-        if (word.aiText.isNullOrBlank()) {
-            OutlinedButton(onClick = onAiExplain, enabled = !word.aiLoading) {
-                Text(if (word.aiLoading) "AI 正在分析…" else "✨ AI 详解（释义 / 例句 / 搭配）")
+        SectionTitle("AI")
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            AiKind.values().forEach { kind ->
+                val running = word.aiLoading && word.aiKind == kind.id
+                FilterChipCompat(
+                    label = if (running) "分析中…" else kind.label,
+                    selected = word.aiKind == kind.id && word.aiText != null,
+                    enabled = !word.aiLoading,
+                    onClick = { onAiExplain(kind.id) }
+                )
             }
         }
         if (word.aiLoading) {
@@ -402,6 +416,36 @@ private fun posChinese(code: String): String = when (code.trim().lowercase()) {
     "abbr." -> "缩写"
     "pl." -> "复数"
     else -> ""
+}
+
+/** 简易胶囊按钮：不依赖 FilterChip，避开实验性 API */
+@Composable
+private fun FilterChipCompat(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val bg = when {
+        !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        selected -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+    }
+    val fg = when {
+        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+        selected -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Text(
+        label,
+        fontSize = 12.sp,
+        color = fg,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(bg)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    )
 }
 
 @Composable
