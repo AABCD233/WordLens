@@ -52,8 +52,35 @@ object ImageFiles {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.RGB_565
         }
-        BitmapFactory.decodeFile(file.absolutePath, opts)
+        val decoded = BitmapFactory.decodeFile(file.absolutePath, opts) ?: return null
+        applyExifRotation(file, decoded)
     }.getOrNull()
+
+    /**
+     * 按 EXIF 方向把位图转正。
+     *
+     * 这一步不能省：ML Kit 的 InputImage.fromFilePath 会读 EXIF 并自动旋转，
+     * 而 BitmapFactory 不会。两边方向不一致时，词框坐标就和画出来的图对不上，
+     * 表现出来就是「图片被拉伸/歪着」。
+     */
+    private fun applyExifRotation(file: File, bmp: Bitmap): Bitmap {
+        val degrees = runCatching {
+            val exif = android.media.ExifInterface(file.absolutePath)
+            when (exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)) {
+                android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+        }.getOrDefault(0f)
+        if (degrees == 0f) return bmp
+        return runCatching {
+            val m = android.graphics.Matrix().apply { postRotate(degrees) }
+            val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+            if (rotated !== bmp) bmp.recycle()
+            rotated
+        }.getOrDefault(bmp)
+    }
 
     fun deleteQuietly(file: File?) {
         runCatching { file?.takeIf { it.exists() }?.delete() }
