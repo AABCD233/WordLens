@@ -1,179 +1,110 @@
-# 词镜 WordLens · 拍照读英文、点词查释义的安卓 App
+# 词镜 WordLens
 
-拍一页英文（课本、真题、说明书、菜单、路牌），App 在手机本地把文字识别出来，
-**点任意一个单词**就出音标、中文释义、英文释义和例句、原句、朗读，一键进生词本，
-之后按间隔重复自动排复习。**照片不联网上传**，OCR 用的是打进 APK 的 ML Kit 端侧模型。
+**拍一页英文，点哪个词查哪个词。** Android · 离线优先 · 照片不出手机
 
-- minSdk 26（Android 8.0+）· Kotlin + Jetpack Compose · 单模块 `:app`
-- 识别：ML Kit Text Recognition v2（bundled，无需 Google Play 服务下载模型、无需联网）
-- 词典：内置离线英汉词典 **114,247 词 / 23.7 MB**（数据源 [ECDICT](https://github.com/skywind3000/ECDICT)，MIT）
-- 词典包可换：设置里可一键下载 **全量包 760,613 词 / 84.6 MB**（装进手机 37 MB 的 gz），也能填任意自制包地址
-- 翻译：全文翻译 + 例句翻译，引擎可切 **MyMemory / AI / 有道智云 / 百度 / 必应(Azure) / Google**
-- 直接查词：不拍照也能查，输入即联想
-- 原图对照支持**双指缩放 + 拖动**，双击复位
-- 最近识别可**改名 / 删除**；AI 支持**详解 / 例句 / 搭配**三个维度和**整篇精读**
-- 词卡可写**自定义释义**（只存本机）；原形和词形变化都能点进去查
-- 原图页有**词框开关**和**手动查词**（OCR 认错字时不用退出重来）
-- 设置里可**导出 / 导入备份**（JSON：生词本 + 识别记录 + 自定义释义）
-- 可选增强：免费英文词典 API、有道在线补中文、你自己的 OpenAI 兼容接口（AI 详解）
+[![下载最新 APK](https://img.shields.io/badge/⬇%20下载%20APK-Releases-12B39A?style=for-the-badge)](https://github.com/AABCD233/WordLens/releases/latest)
+[![更新日志](https://img.shields.io/badge/更新日志-Releases-555?style=for-the-badge)](https://github.com/AABCD233/WordLens/releases)
+[![问题反馈](https://img.shields.io/badge/问题反馈-Issues-E8553A?style=for-the-badge)](https://github.com/AABCD233/WordLens/issues)
 
 ---
 
-## 零之一、关于签名（覆盖安装报「签名不一致」看这里）
+## 下载安装
 
-早期版本是用 CI 上临时生成的 `debug.keystore` 签的，**每次构建指纹都不一样**，
-所以第二个包盖不上第一个包。从 1.2.0 起改成用仓库里固定的 `keystore/wordlens.p12`
-（RSA 2048，有效期到 2056 年），debug / release 共用同一把钥匙，以后升级都能直接覆盖安装。
+**到 [Releases](https://github.com/AABCD233/WordLens/releases) 下载最新的 `app-debug.apk`，点开安装即可。**
 
-- 证书 SHA-256：`48:5f:0e:1d:de:10:65:73:4c:a5:08:ca:f3:5c:d0:f2:9f:2d:aa:cf:62:0c:28:e7:24:6b:c9:db:42:20:d0:a7`
-- 口令：`wordlens`（`storePassword` / `keyPassword` 相同，alias 也是 `wordlens`）
-
-**第一次装 1.2.0 时请先卸载旧版**（旧版签名对不上，只能先删掉），之后就再也不用了。
-装好后可以在「设置 → 关于」里核对指纹。
-
-想换成自己的证书：`keytool -genkeypair -keystore keystore/wordlens.p12 -storetype PKCS12 ...`
-再把 `app/build.gradle.kts` 里 `signingConfigs` 的口令改掉即可。
+- 系统要求：Android 8.0 及以上（minSdk 26）
+- 首次安装需要在系统里允许「安装未知来源应用」
+- 从 **1.2.0 之前的版本**升级，需要先卸载旧版（签名换过，装不上是正常的）；1.2.0 之后都能直接覆盖升级
 
 ---
 
-## 零、词库不够用？换词典包
+## 它是什么
 
-设置 → 离线词典 → 词典包：
+拍照或选图 → 端侧 OCR 把文字切到「词」这一级 → 点任意单词，立刻出音标、中文释义、英文释义与例句、
+词形变化、考试标签和原句，还能朗读、加进生词本。生词本按间隔重复自动安排复习。
 
-| 包 | 词数 | 体积 | 来源 |
-| --- | --- | --- | --- |
-| 内置核心词典 | 114,247 | 随 APK（23.7 MB） | assets/dict.db |
-| 官方全量词典包 | 760,613 | 下载 37 MB，占 84.6 MB | [Releases › dict-v1](https://github.com/AABCD233/WordLens/releases/tag/dict-v1) |
-
-点「下载官方全量包」就行（默认走 gh-proxy 加速镜像，失败会自动换源直连），
-装完立刻生效，不用重装 APK。也可以「填入官方地址」后自己确认链接。
-也可以填任何你自己生成的 `dict.db` / `dict.db.gz` 地址（生成方法见 `data/dict/README.md`）。
-
-切换是热切换：`DictStore.usePack()` 关掉旧句柄、打开新文件，不用重启 App。
-扩展包也可以随时删掉，删掉后自动回到内置包。
+**识别和查词都在本机完成**，断网也能用；照片只留在手机里，不上传。
 
 ---
 
-## 一、不装任何开发环境，直接拿到 APK（推荐，适合就在手机上操作）
-
-本仓库带了 `.github/workflows/build-apk.yml`，GitHub Actions 会替你编译。
-
-1. 在 GitHub 新建一个仓库（Private 也可以）
-2. 把本目录内容传上去，两种方式任选：
-   - **网页上传**：仓库页 → `Add file → Upload files`，直接把整个文件夹拖进去
-     （`app/src/main/assets/dict.db` 约 24 MB，在网页单文件 25 MB 限制内）
-   - **命令行推送**（手机上就能做，需要 [PAT](https://github.com/settings/tokens)，勾 `repo` 权限）：
-     ```bash
-     cd WordLens
-     git init && git add -A && git commit -m "WordLens 1.0.0"
-     git branch -M main
-     git remote add origin https://<你的用户名>:<PAT>@github.com/<你的用户名>/wordlens.git
-     git push -u origin main
-     ```
-3. 仓库 → **Actions** → 左侧 `Build APK` → **Run workflow** → 等 5~10 分钟
-4. 进这次运行记录，最下面 **Artifacts** 里下载 `wordlens-debug-apk`，解压得到 `app-debug.apk`
-5. 手机上点开安装（允许「安装未知应用」）。想让别人也能一键下载，就打个 tag：
-   ```bash
-   git tag v1.0.0 && git push origin v1.0.0
-   ```
-   workflow 会自动建 Release 并把 APK 附在 Releases 里。
-
-> Workflow 里先 `assembleDebug` 上传 APK，再跑 `:app:testDebugUnitTest`（纯逻辑单测）。
-> 这样万一某个断言挂了，包也已经在 Artifacts 里，不影响你安装。
-> 用的是 JDK 17 + Gradle 8.14.6（wrapper 已在仓库里）。
-
-## 二、用 Android Studio 编译
-
-`Open` 本目录即可（AGP 8.13.2 / Gradle 8.14.6 / Kotlin 2.2.21，需要 JDK 17）。
-
-```bash
-./gradlew :app:assembleDebug        # 产物 app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:assembleRelease      # debug key 签名，方便自用；上架请自己配 signingConfig
-./gradlew :app:testDebugUnitTest    # 跑 WordNormalizer / OcrCodec / TextFlowBuilder 的单测
-```
-
----
-
-## 三、功能与页面
+## 功能
 
 | 页面 | 能做什么 |
 |---|---|
-| 📷 拍照 | CameraX 预览、拍照识别、从相册选图（Photo Picker，不要存储权限）、前后摄像头切换；下方「最近识别」可回看 |
-| 阅读页 | 三种视图：**单词视图**（逐行可点）· **原图对照**（按 OCR 词框命中，图上画框）· **纯文本**（连续阅读）；复制全文、删除记录 |
-| 点词卡 | 音标、中文释义（按词性分行）、英文释义与例句、词形变化（复数/过去式/三单…）、考试标签（四级/六级/考研/雅思…）、原句 + 朗读、加入生词本、AI 详解 |
-| 📚 生词本 | 搜索、展开看详情、删除；「复习 N」显示到期数量 |
-| 复习 | Leitner 间隔重复：想→翻答案→自评。记得就升级（1/2/4/7/15/30 天），忘了回到第 0 级并 10 分钟后再出现 |
-| ⚙️ 设置 | 查词来源开关、AI 接口配置、自动朗读与语速、离线词典状态与词数、清网络缓存 |
+| 📷 拍照 | 相机预览 / 拍照识别 / 相册选图（Photo Picker，不要存储权限）/ 前后摄切换；下方「最近识别」可回看、改名、删除 |
+| 📖 阅读页 | 四种视图：**单词视图**（逐行可点）· **原图对照**（按词框命中，可双指缩放、拖动、开关词框）· **纯文本** · **译文**；还有 **AI 精读**；可复制全文、改名、删除 |
+| 🔍 查词 | 不拍照直接查，输入即联想；原形与词形变化都能点进去；OCR 认错字时也能用手动查词救回来 |
+| 词卡 | 音标、中文释义（按词性分行）、英文释义与例句、双语例句、词形变化（可点）、考试标签、原句 + 朗读；可写**自定义释义**；可加入生词本 |
+| 📚 生词本 | 搜索、展开详情、删除；「复习 N」显示到期数量 |
+| 复习 | Leitner 间隔重复：记得就升级（1/2/4/7/15/30 天），忘了回第 0 级、10 分钟后再出现 |
+| ⚙️ 设置 | 查词来源、翻译引擎（6 种）、离线词典包（可下载全量包）、朗读、AI 接口、**数据备份与导入** |
 
 ### 查词的优先级（离线优先，断网可用）
 
 ```
-1. 内置离线词典（点词 0ms，词形还原后重查：studying → study）
-2. 免费英文词典 dictionaryapi.dev   ← 补英英释义 / 例句 / 发音 URL（结果缓存 30 天）
-3. MyMemory 机器翻译 en→zh          ← 离线没收录的词给一句中文
-4. 你的 AI 接口（OpenAI 兼容）      ← 只在点「AI 详解」按钮时调用
+1. 离线词典（内置 11 万词；点 studying 会自动按 study 查，并把原形条目一起合并）
+2. 免费英文词典 dictionaryapi.dev   ← 补英英释义 / 例句 / 发音 URL
+3. 有道在线词典（需手动开启）        ← 补中文释义 + 双语例句
+4. 机器翻译（可选引擎）              ← 离线没收录时给一句中文
+5. AI 接口（OpenAI 兼容）            ← 只在你点「AI 详解 / 例句 / 搭配 / 精读」时调用
 ```
-第 2、3 步失败不影响使用，只是少英文例句——UI 会照旧显示离线结果。
+
+第 2 步之后的任何一步失败都不影响使用，只是内容少一点；断网时词卡顶部会明确提示。
 
 ---
 
-## 四、目录结构
+## 关于这个项目
 
-```
-app/src/main/java/com/wordlens/app/
-├─ WordLensApp.kt / AppContainer.kt   # Application + 手写依赖容器（不引 Hilt）
-├─ MainActivity.kt                    # edge-to-edge + 分享图片进来的 intent
-├─ data/
-│  ├─ model/      OcrResult / Definition / WordNormalizer（纯 Kotlin，可单测）
-│  ├─ ocr/        OcrEngine（ML Kit → 词级坐标）
-│  ├─ db/         AppDatabase（业务库：文档/生词/缓存）+ DictStore（离线词典）
-│  ├─ dict/       DictionaryRepository + FreeDictionaryApi + TranslateApi + LlmClient
-│  ├─ tts/        TtsEngine（系统 TTS）
-│  └─ settings/   AppSettings（SharedPreferences + StateFlow）
-├─ ui/
-│  ├─ RootScreen / MainViewModel      # 5 个目的地，自写路由（不引 navigation）
-│  ├─ capture/ reader/ wordbook/ settings/ theme/
-└─ util/          OcrCodec（词坐标序列化）、ImageFiles（缩放与落盘）
+- **本项目由 AI 构建。** 代码、文档、CI 配置、发版流程基本都是 AI（DeepSeek / Claude 等）写的，
+  人负责提需求和测试。这点想先说清楚，免得你对代码风格或架构有别的预期。
+- **还在开发初期。** 功能不完善、边界情况可能没覆盖、也可能有 bug。
+  已知问题会记在 [Issues](https://github.com/AABCD233/WordLens/issues) 里。
+- **欢迎 PR。** 修 bug、加功能、改文案、补文档都欢迎；提之前开个 Issue 说一声更容易对齐。
+  真的只是随便用用也欢迎反馈问题，描述清楚「什么机型、什么操作、什么现象」就行。
 
-data/dict/        离线词典构建脚本（见下）
-.github/workflows/build-apk.yml       CI
-```
+### 一些技术选择
 
-**故意不用的依赖**：Room/KSP、Coil、OkHttp、kotlinx-serialization、Navigation、DataStore、Hilt。
-原因很实际：这个工程要在没有本地编译验证的情况下交给 CI，注解处理器和第三方坐标是
-最容易「版本对不上就整条流水线红掉」的地方，而它们提供的功能这里都用 ~80 行标准库替代掉了
-（`SQLiteOpenHelper`、`HttpURLConnection` + `org.json`、自写底部面板、自写路由）。
+- Kotlin + Jetpack Compose，单模块 `:app`，minSdk 26
+- OCR 用 ML Kit Text Recognition v2（bundled 模型，不依赖 Google Play 服务，离线可用）
+- **故意不引** Room/KSP、Coil、OkHttp、kotlinx-serialization、Navigation、Hilt：
+  在没人本地编译、全靠 CI 出包的条件下，注解处理器和第三方坐标是最容易让流水线变红的东西，
+  而它们的功能这里用标准库几十行就能替代（`SQLiteOpenHelper`、`HttpURLConnection` + `org.json`、自写路由）
 
-## 五、离线词典从哪来、怎么重建
+---
 
-```bash
-python3 data/dict/build_dict.py            # 下载 ECDICT → 清洗 → 生成 assets/dict.db
-python3 data/dict/build_dict.py --csv ecdict.csv   # 用本地已有的 csv
-```
-脚本从 77 万条里留下「有中文字义且有牛津/Collins/词频/变形/考纲标签」的词，
-同词去重保留信息最全的一条，超 40 MB 时按词频名次收紧，最后 `VACUUM` 并自检
-（行数、非小写数、空释义数、`integrity_check`、`journal_mode`、样例词）。
-当前产物：**114,247 词，23.7 MB**，统计见 `data/dict/build/build_stats.json`。
+## 数据与隐私
 
-App 首次启动会把它从 assets 解包到 `files/dict/dict.db` 再只读打开
-（asset 被 aapt 压缩也没关系：`DictStore` 会走 `openFd` → 失败则流式解压写出，两条路都测过逻辑）。
+- 图片只存在 App 私有目录（`files/documents/`），OCR 全程本地，**不上传**
+- 只有你主动开启的在线查词 / 翻译 / AI 会发请求，内容仅是你点的那个词（AI 会附带那一句上下文）
+- API Key 存在本机私有偏好文件里，不写日志、不进备份
+- 备份导出的 JSON 只包含文字数据（生词本、识别记录、自定义释义），不含图片
 
-许可与署名见 `data/dict/LICENSE.md`。
+---
 
-## 六、常见问题
+## 给开发者
+
+- 目录结构、词典构建、CI 说明都在 [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)
+  和 [`data/dict/`](data/dict/) 里；PR 直接改代码，CI 会自动编译并校验签名。
+- 离线词典：`python3 data/dict/build_dict.py`（数据源 [ECDICT](https://github.com/skywind3000/ECDICT)，MIT）
+- 想自己装机试试：`./gradlew :app:assembleDebug`
+
+---
+
+## 常见问题
 
 | 现象 | 处理 |
 |---|---|
-| CI 报 `Could not find com.google.mlkit:...` | `settings.gradle.kts` 的 `repositories` 必须有 `google()`；ML Kit 不在 Maven Central |
-| CI 报 `Dependency ... requires compileSdk 37` | 说明某个库被自动升到了更新的版本。把 `gradle/libs.versions.toml` 里对应库降回本文标注的版本，或把 `compileSdk` 改成 37（需要 AGP ≥ 9.1） |
-| `./gradlew` 提示找不到主类 | wrapper jar 没提交上去。用 Android Studio 重新生成，或 `gradle wrapper --gradle-version 8.14.6` |
-| 点词只有中文、没有英文例句 | 设置里打开「免费英文词典」；该站点偶尔限流，多点一次或换词重试 |
-| 识别不出文字 | 拍正、拍清楚、一行文字尽量占满屏宽；也可以改用「原图对照」视图点词，命中区域按词框算 |
-| 朗读没声音 | 系统缺英文 TTS 引擎：设置 → 无障碍 → 文字转语音输入，装一个 Google 文字转语音 |
-| 想减小 APK | 打开 release 的 `isMinifyEnabled = true` 并按 `app/proguard-rules.pro` 注释补规则 |
+| 点词只有中文、没有英文例句 | 设置里打开「免费英文词典」；或打开「有道词典在线补中文」拿双语例句 |
+| 识别不出文字 | 拍正、拍清楚、让一行字尽量占满屏宽；也可以切「原图对照」按词框点词，或用「手动查词」 |
+| 某个词查不到 | 可能是 OCR 认错了。用「手动查词」敲正确的词；或在设置里下载全量词典包（76 万词） |
+| 朗读没声音 | 系统缺英文 TTS 引擎：设置 → 无障碍 → 文字转语音，装一个 Google 文字转语音 |
+| 覆盖安装报「签名不一致」 | 只有 1.2.0 之前的版本会这样，卸载旧版再装即可 |
+| 想换个词库 | 设置 → 离线词典 → 下载官方全量包，或填自己的 `.db` / `.db.gz` 地址 |
 
-## 七、隐私
+---
 
-- 图片只存在 App 私有目录（`files/documents/`），OCR 全程在手机本地完成，不上传。
-- 只有你主动打开的在线查词/翻译/AI 功能会发网络请求，请求内容仅为你点的那个单词（AI 详解会带上那一句上下文）。
-- AI Key 存在本机私有偏好文件，不写日志、不备份（`allowBackup=false`）。
+## 致谢与许可
+
+- 词典数据：[ECDICT](https://github.com/skywind3000/ECDICT)（MIT）
+- 在线能力：dictionaryapi.dev、MyMemory、有道词典（均为各自服务方提供）
+- 本项目代码：MIT
