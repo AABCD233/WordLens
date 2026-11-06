@@ -84,6 +84,11 @@
 
 ## 给开发者
 
+> 国内直连 `github.com` / `raw.githubusercontent.com` 经常被拒，可以用 gh-proxy 加速：
+> 在任意 GitHub 资源地址前拼 `https://gh-proxy.org/` 即可（Release 资产、Actions 产物、raw 文件、`git clone` 都支持）。
+> 例：`git clone https://gh-proxy.org/https://github.com/AABCD233/WordLens.git`
+
+
 - 目录结构、词典构建、CI 说明都在 [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)
   和 [`data/dict/`](data/dict/) 里；PR 直接改代码，CI 会自动编译并校验签名。
 - 离线词典：`python3 data/dict/build_dict.py`（数据源 [ECDICT](https://github.com/skywind3000/ECDICT)，MIT）

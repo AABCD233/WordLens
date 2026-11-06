@@ -232,6 +232,7 @@ class DictPackManager(
          * 任何一个成功就用它。
          */
         val OFFICIAL_PACK_MIRRORS: List<String> = listOf(
+            "https://gh-proxy.org/" + OFFICIAL_PACK_URL,
             "https://v4.gh-proxy.org/" + OFFICIAL_PACK_URL,
             "https://ghfast.top/" + OFFICIAL_PACK_URL,
             "https://gh-proxy.com/" + OFFICIAL_PACK_URL,
