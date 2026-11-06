@@ -19,17 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-第三方数据与许可说明 / Third-party notices
-
-1. 离线词典数据来自 ECDICT（https://github.com/skywind3000/ECDICT），MIT 许可。
-   词条内容以 ECDICT 为准，本项目只做了筛选、清洗与重新打包。
-   详见 data/dict/LICENSE.md。
-
-2. 在线能力由各自服务方提供（dictionaryapi.dev、MyMemory、有道词典等），
-   使用时需遵守对应服务的使用条款。
-
-3. App 使用的 ML Kit 文字识别、CameraX、Jetpack Compose 等 Android 库
-   分别遵循各自的开源许可（Apache-2.0 等）。

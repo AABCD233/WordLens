@@ -108,4 +108,5 @@
 
 - 词典数据：[ECDICT](https://github.com/skywind3000/ECDICT)（MIT）
 - 在线能力：dictionaryapi.dev、MyMemory、有道词典（均为各自服务方提供）
-- 本项目代码：[MIT](LICENSE) · 第三方数据与依赖的许可见 [LICENSE](LICENSE) 末尾与 [data/dict/LICENSE.md](data/dict/LICENSE.md)
+- 本项目代码：[MIT](LICENSE)
+- 第三方数据与在线服务的许可：见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) 与 [data/dict/LICENSE.md](data/dict/LICENSE.md)
