@@ -5,6 +5,7 @@
 [![下载最新 APK](https://img.shields.io/badge/⬇%20下载%20APK-Releases-12B39A?style=for-the-badge)](https://github.com/AABCD233/WordLens/releases/latest)
 [![更新日志](https://img.shields.io/badge/更新日志-Releases-555?style=for-the-badge)](https://github.com/AABCD233/WordLens/releases)
 [![问题反馈](https://img.shields.io/badge/问题反馈-Issues-E8553A?style=for-the-badge)](https://github.com/AABCD233/WordLens/issues)
+[![MIT License](https://img.shields.io/badge/许可-MIT-2EA44F?style=for-the-badge)](LICENSE)
 
 ---
 
@@ -107,4 +108,4 @@
 
 - 词典数据：[ECDICT](https://github.com/skywind3000/ECDICT)（MIT）
 - 在线能力：dictionaryapi.dev、MyMemory、有道词典（均为各自服务方提供）
-- 本项目代码：MIT
+- 本项目代码：[MIT](LICENSE) · 第三方数据与依赖的许可见 [LICENSE](LICENSE) 末尾与 [data/dict/LICENSE.md](data/dict/LICENSE.md)
