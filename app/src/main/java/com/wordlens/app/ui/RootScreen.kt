@@ -76,14 +76,12 @@ fun RootScreen(vm: MainViewModel) {
     var tab by rememberSaveable { mutableStateOf(Tab.Camera) }
     var reviewing by rememberSaveable { mutableStateOf(false) }
     // 全局提示条：messages 以前根本没人收集，所以所有提示都发进了虚空
-    var toast by remember { mutableStateOf<String?>(null) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
-        vm.messages.collect { msg -> toast = msg }
-    }
-    LaunchedEffect(toast) {
-        val current = toast ?: return@LaunchedEffect
-        kotlinx.coroutines.delay(2200)
-        if (toast == current) toast = null
+        // 系统 Toast：不占布局、不盖住词卡内容、不吃触摸
+        vm.messages.collect { msg ->
+            android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     // 上滑把胶囊收起来、下滑露出来（照 PiliPlus 的手感）
@@ -298,27 +296,6 @@ fun RootScreen(vm: MainViewModel) {
         )
     }
 
-    // 提示条画在最上层：词卡、对话框之上都能看见；本身不消费触摸事件
-    toast?.let { msg ->
-        Box(
-            modifier = Modifier.fillMaxSize().padding(bottom = 96.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.inverseSurface,
-                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                shape = RoundedCornerShape(50),
-                shadowElevation = 8.dp
-            ) {
-                Text(
-                    msg,
-                    fontSize = 13.sp,
-                    maxLines = 3,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp)
-                )
-            }
-        }
-    }
 }
 
 /** 悬浮式底部导航：圆角胶囊 + 选中态药丸，浮在内容之上 */
@@ -342,20 +319,20 @@ private fun FloatingNavBar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NavItem("📷", "拍照", current == Tab.Camera) { onSelect(Tab.Camera) }
-            NavItem("🔍", "查词", current == Tab.Search) { onSelect(Tab.Search) }
+            NavItem(NavIconKind.Camera, "拍照", current == Tab.Camera) { onSelect(Tab.Camera) }
+            NavItem(NavIconKind.Search, "查词", current == Tab.Search) { onSelect(Tab.Search) }
             NavItem(
-                "📚",
+                NavIconKind.Book,
                 if (dueCount > 0) "复习 $dueCount" else "生词本",
                 current == Tab.Wordbook
             ) { onSelect(Tab.Wordbook) }
-            NavItem("⚙️", "设置", current == Tab.Settings) { onSelect(Tab.Settings) }
+            NavItem(NavIconKind.Settings, "设置", current == Tab.Settings) { onSelect(Tab.Settings) }
         }
     }
 }
 
 @Composable
-private fun NavItem(emoji: String, label: String, selected: Boolean, onClick: () -> Unit) {
+private fun NavItem(kind: NavIconKind, label: String, selected: Boolean, onClick: () -> Unit) {
     val bg by androidx.compose.animation.animateColorAsState(
         targetValue = if (selected) MaterialTheme.colorScheme.secondaryContainer
         else Color.Transparent,
@@ -369,8 +346,13 @@ private fun NavItem(emoji: String, label: String, selected: Boolean, onClick: ()
             .padding(horizontal = 14.dp, vertical = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(emoji, fontSize = 18.sp)
-        Spacer(Modifier.height(2.dp))
+        NavIcon(
+            kind = kind,
+            tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            sizeDp = 22
+        )
+        Spacer(Modifier.height(3.dp))
         Text(
             label,
             fontSize = 11.sp,

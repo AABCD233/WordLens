@@ -38,6 +38,8 @@ data class Settings(
     val azureRegion: String = "global",
     /** 当前使用的扩展词典包 id；空串 = 内置核心词典 */
     val activePackId: String = "",
+    /** 朗读引擎：system = 系统 TTS，online = 有道发音（联网） */
+    val ttsMode: String = "system",
     /** Android 12+ 是否跟随系统壁纸取色（Material You） */
     val dynamicColor: Boolean = true
 ) {
@@ -71,6 +73,7 @@ class AppSettings(context: Context) {
         azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
         azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global",
         activePackId = prefs.getString(K_PACK, "") ?: "",
+        ttsMode = prefs.getString(K_TTS_MODE, "system") ?: "system",
         dynamicColor = prefs.getBoolean(K_DYNAMIC, true)
     )
 
@@ -96,6 +99,7 @@ class AppSettings(context: Context) {
             putString(K_AZ_KEY, next.azureKey)
             putString(K_AZ_REGION, next.azureRegion)
             putString(K_PACK, next.activePackId)
+            putString(K_TTS_MODE, next.ttsMode)
             putBoolean(K_DYNAMIC, next.dynamicColor)
         }.apply()
     }
@@ -125,5 +129,6 @@ class AppSettings(context: Context) {
         const val K_AZ_REGION = "azure_region"
         const val K_PACK = "active_dict_pack"
         const val K_DYNAMIC = "dynamic_color"
+        const val K_TTS_MODE = "tts_mode"
     }
 }

@@ -213,10 +213,21 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
-            Spacer(Modifier.height(6.dp))
-            OutlinedButton(onClick = onTestSpeak, enabled = ttsReady) {
-                Text(if (ttsReady) "试听一句" else "系统未装英文语音，去「设置 → 无障碍 → 文字转语音」装一个")
-            }
+            Spacer(Modifier.height(8.dp))
+            SubTitle("朗读引擎")
+            TtsModeRow(
+                "系统语音",
+                if (ttsReady) "离线、零延迟" else "这台机器没找到英文语音，建议用下面的在线朗读",
+                settings.ttsMode == "system"
+            ) { onUpdate { it.copy(ttsMode = "system") } }
+            TtsModeRow(
+                "在线朗读",
+                "有道发音，联网即可，不依赖系统语音包",
+                settings.ttsMode == "online"
+            ) { onUpdate { it.copy(ttsMode = "online") } }
+
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onTestSpeak) { Text("试听一句") }
         }
 
         // ---------- 外观 ----------
@@ -411,6 +422,39 @@ private fun SectionCard(
             if (expanded.value) {
                 Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) { content() }
             }
+        }
+    }
+}
+
+@Composable
+private fun TtsModeRow(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                else Color.Transparent
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            if (selected) "◉" else "○",
+            fontSize = 15.sp,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 17.sp
+            )
         }
     }
 }

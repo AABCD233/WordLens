@@ -253,7 +253,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
             if (def.onlineFailed) {
                 _messages.tryEmit("没联网，只显示了离线释义")
             }
-            if (settings.value.autoSpeak) app.tts.speak(def.lemma, settings.value.speechRate)
+            if (settings.value.autoSpeak) speak(def.lemma)
         }
     }
 
@@ -297,14 +297,10 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     }
 
     fun speak(text: String) {
-        val ok = app.tts.speak(text, settings.value.speechRate)
-        if (!ok) {
-            _messages.tryEmit(
-                if (ttsState.value == TtsEngine.State.UNAVAILABLE)
-                    "这台手机没有可用的英文语音。去「系统设置 → 无障碍 → 文字转语音」装一个英文引擎再试"
-                else "语音还没准备好，稍等一下再点一次"
-            )
-        }
+        val s = settings.value
+        val mode = if (s.ttsMode == "online") TtsEngine.Mode.ONLINE else TtsEngine.Mode.SYSTEM
+        val ok = app.tts.speak(text, s.speechRate, mode)
+        if (!ok) _messages.tryEmit("朗读失败：系统语音不可用，也没连上网络")
     }
 
     fun requestAiExplain(kind: String = AiKind.EXPLAIN.id) {

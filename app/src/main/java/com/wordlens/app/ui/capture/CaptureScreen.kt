@@ -15,6 +15,10 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -222,12 +226,12 @@ fun CaptureScreen(
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }) { Text("相册") }
 
-            Button(
+            ShutterButton(
                 onClick = {
                     val capture = imageCapture
                     if (capture == null) {
                         onMessage("相机还没准备好，稍等一下或改用相册")
-                        return@Button
+                        return@ShutterButton
                     }
                     val file = ImageFiles.newCaptureFile(context)
                     capture.takePicture(
@@ -244,9 +248,7 @@ fun CaptureScreen(
                         }
                     )
                 },
-                shape = CircleShape,
-                modifier = Modifier.size(72.dp)
-            ) { Text("拍照", fontWeight = FontWeight.SemiBold) }
+            )
 
             OutlinedButton(onClick = {
                 lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
@@ -351,6 +353,46 @@ fun CaptureScreen(
                 }
             }
         }
+    }
+}
+
+/** 相机快门：外圈细环 + 内圈实心圆，按下时内圈缩小一点 */
+@Composable
+private fun ShutterButton(onClick: () -> Unit) {
+    val pressed = remember { androidx.compose.runtime.mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed.value) 0.86f else 1f, label = "shutter"
+    )
+    Box(
+        modifier = Modifier
+            .size(74.dp)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+            .pointerInput(Unit) {
+                androidx.compose.foundation.gestures.detectTapGestures(
+                    onPress = {
+                        pressed.value = true
+                        tryAwaitRelease()
+                        pressed.value = false
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier
+                .size(74.dp)
+                .border(3.dp, Color.White, CircleShape)
+        )
+        Box(
+            Modifier
+                .size(58.dp)
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .background(Color.White, CircleShape)
+        )
     }
 }
 
