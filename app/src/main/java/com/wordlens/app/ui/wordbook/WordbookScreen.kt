@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wordlens.app.data.db.SavedWord
 import com.wordlens.app.ui.WordbookUi
+import com.wordlens.app.ui.theme.PageTitleStyle
 import com.wordlens.app.ui.formatDue
 import com.wordlens.app.ui.formatTime
 
@@ -50,6 +52,19 @@ fun WordbookScreen(
     var query by remember { mutableStateOf(state.query) }
 
     Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("生词本", style = PageTitleStyle)
+                Text(
+                    "点词加进来，按间隔重复复习",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -69,8 +84,9 @@ fun WordbookScreen(
         }
 
         Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp)
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -127,12 +143,22 @@ private fun Stat(label: String, value: String) {
 private fun WordRow(item: SavedWord, onOpenWord: (String) -> Unit, onDelete: (String) -> Unit) {
     var expanded by remember(item.word) { mutableStateOf(false) }
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth().clickable { onOpenWord(item.word) }
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
+                // 只有词本身可点开释义卡；点「详情 / 删除」或展开后的文字都不会误触
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClickLabel = "查看释义") { onOpenWord(item.word) }
+                        .padding(vertical = 2.dp, horizontal = 2.dp)
+                ) {
                     Text(item.word, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
                     if (item.phonetic.isNotBlank()) {
                         Text(

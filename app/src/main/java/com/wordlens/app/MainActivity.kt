@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -35,7 +37,8 @@ class MainActivity : ComponentActivity() {
         mainViewModel = viewModel
 
         setContent {
-            WordLensTheme {
+            val settings by container.settings.state.collectAsState()
+            WordLensTheme(dynamicColor = settings.dynamicColor) {
                 RootScreen(viewModel)
             }
         }

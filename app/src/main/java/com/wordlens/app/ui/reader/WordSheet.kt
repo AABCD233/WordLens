@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -68,18 +70,26 @@ fun WordSheet(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f))
-                .pointerInput(Unit) { detectTapGestures { onDismiss() } }
+                .background(Color.Black.copy(alpha = 0.42f))
+                // 用 clickable 而不是 pointerInput：它会完整消费按下/抬起，
+                // 避免点击"穿透"到后面的列表（生词本里点词后下层仍能点，就是这个原因）
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClickLabel = "关闭释义卡"
+                ) { onDismiss() }
         )
 
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .heightIn(max = 560.dp),
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .heightIn(max = 620.dp)
+                .navigationBarsPadding(),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 6.dp,
+            shadowElevation = 10.dp
         ) {
             Column(
                 modifier = Modifier

@@ -219,6 +219,16 @@ fun SettingsScreen(
             }
         }
 
+        // ---------- 外观 ----------
+        SectionCard(title = "外观", subtitle = "主题色 · 沉浸式布局", defaultExpanded = false) {
+            ToggleRow(
+                "跟随系统主题色",
+                "Android 12 及以上按壁纸取色（Material You）；关掉则用品牌青绿",
+                settings.dynamicColor
+            ) { checked -> onUpdate { it.copy(dynamicColor = checked) } }
+            Hint("深色 / 浅色跟随系统设置，这里只控制取色来源。")
+        }
+
         // ---------- 数据 ----------
         SectionCard(title = "数据备份与导入", subtitle = "导出 / 恢复生词本、识别记录、自定义释义", defaultExpanded = false) {
             val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(

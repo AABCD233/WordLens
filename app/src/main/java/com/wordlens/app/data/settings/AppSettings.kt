@@ -37,7 +37,9 @@ data class Settings(
     val azureKey: String = "",
     val azureRegion: String = "global",
     /** 当前使用的扩展词典包 id；空串 = 内置核心词典 */
-    val activePackId: String = ""
+    val activePackId: String = "",
+    /** Android 12+ 是否跟随系统壁纸取色（Material You） */
+    val dynamicColor: Boolean = true
 ) {
     val aiReady: Boolean get() = aiEnabled && aiApiKey.isNotBlank()
 }
@@ -68,7 +70,8 @@ class AppSettings(context: Context) {
         youdaoAppSecret = prefs.getString(K_YD_SECRET, "") ?: "",
         azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
         azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global",
-        activePackId = prefs.getString(K_PACK, "") ?: ""
+        activePackId = prefs.getString(K_PACK, "") ?: "",
+        dynamicColor = prefs.getBoolean(K_DYNAMIC, true)
     )
 
     fun update(transform: (Settings) -> Settings) {
@@ -93,6 +96,7 @@ class AppSettings(context: Context) {
             putString(K_AZ_KEY, next.azureKey)
             putString(K_AZ_REGION, next.azureRegion)
             putString(K_PACK, next.activePackId)
+            putBoolean(K_DYNAMIC, next.dynamicColor)
         }.apply()
     }
 
@@ -120,5 +124,6 @@ class AppSettings(context: Context) {
         const val K_AZ_KEY = "azure_key"
         const val K_AZ_REGION = "azure_region"
         const val K_PACK = "active_dict_pack"
+        const val K_DYNAMIC = "dynamic_color"
     }
 }

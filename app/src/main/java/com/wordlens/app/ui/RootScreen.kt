@@ -1,6 +1,8 @@
 package com.wordlens.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -118,8 +120,13 @@ fun RootScreen(vm: MainViewModel) {
         )
 
         else -> Scaffold(
+            // 内容自己处理状态栏，否则永远是一块实心色条，谈不上沉浸
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 3.dp
+                ) {
                     NavigationBarItem(
                         selected = tab == Tab.Camera,
                         onClick = { tab = Tab.Camera },
@@ -162,7 +169,8 @@ fun RootScreen(vm: MainViewModel) {
                         onMessage = vm::toast
                     )
 
-                    Tab.Search -> SearchScreen(
+                    Tab.Search -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                        SearchScreen(
                         query = searchQuery,
                         suggestions = suggestions,
                         dictReady = dictStatus == DictStatus.READY,
@@ -171,9 +179,11 @@ fun RootScreen(vm: MainViewModel) {
                         onSubmit = { q -> vm.searchWord(q) },
                         onPick = { w -> vm.searchWord(w) },
                         onMessage = vm::toast
-                    )
+                        )
+                    }
 
-                    Tab.Wordbook -> WordbookScreen(
+                    Tab.Wordbook -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                        WordbookScreen(
                         state = wordbook,
                         dictReady = dictStatus == DictStatus.READY,
                         onSearch = vm::searchWordbook,
@@ -184,9 +194,11 @@ fun RootScreen(vm: MainViewModel) {
                             vm.startReview()
                         },
                         onRefresh = { vm.refreshWordbook() }
-                    )
+                        )
+                    }
 
-                    Tab.Settings -> SettingsScreen(
+                    Tab.Settings -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                        SettingsScreen(
                         settings = settings,
                         dictStatus = dictStatus,
                         dictWords = dictWords,
@@ -204,7 +216,8 @@ fun RootScreen(vm: MainViewModel) {
                         onExportBackup = { uri -> vm.exportBackup(uri) },
                         onImportBackup = { uri -> vm.importBackup(uri) },
                         onMessage = vm::toast
-                    )
+                        )
+                    }
                 }
             }
         }

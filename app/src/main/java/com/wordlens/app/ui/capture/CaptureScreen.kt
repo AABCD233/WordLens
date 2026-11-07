@@ -60,6 +60,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.wordlens.app.ui.theme.PageTitleStyle
 import com.wordlens.app.data.db.DictStatus
 import com.wordlens.app.data.db.DocumentRow
 import com.wordlens.app.ui.formatTime
@@ -112,6 +114,38 @@ fun CaptureScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
+        // 标题栏：内容画到状态栏下面，只在这里让出高度
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("词镜", style = PageTitleStyle)
+                Text(
+                    "拍照识英文 · 点词即查义",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Surface(
+                color = if (dictStatus == DictStatus.READY) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                },
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text(
+                    if (dictStatus == DictStatus.READY) "离线词典就绪" else "词典准备中",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
+
         if (dictStatus == DictStatus.PREPARING) {
             Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
                 Text(
@@ -239,8 +273,12 @@ fun CaptureScreen(
                 items(recent, key = { it.id }) { doc ->
                     var menuOpen by remember(doc.id) { mutableStateOf(false) }
                     Card(
-                        modifier = Modifier.width(190.dp).clickable { onOpen(doc.id) },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        modifier = Modifier.width(184.dp).clip(RoundedCornerShape(20.dp))
+                            .clickable { onOpen(doc.id) },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        )
                     ) {
                         Box(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(10.dp)) {
@@ -298,7 +336,10 @@ fun CaptureScreen(
         } else {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
             ) {
                 Column(Modifier.padding(14.dp)) {
                     Text("怎么用", fontWeight = FontWeight.SemiBold)

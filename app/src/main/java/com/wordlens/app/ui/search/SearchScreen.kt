@@ -53,7 +53,9 @@ fun SearchScreen(
 ) {
     Column(Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("查词", style = com.wordlens.app.ui.theme.PageTitleStyle)
+                Spacer(Modifier.height(4.dp))
                 OutlinedTextField(
                     value = query,
                     onValueChange = onQueryChange,
