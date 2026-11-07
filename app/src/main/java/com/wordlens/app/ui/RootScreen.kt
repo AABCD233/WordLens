@@ -85,6 +85,25 @@ fun RootScreen(vm: MainViewModel) {
         if (toast == current) toast = null
     }
 
+    // 上滑把胶囊收起来、下滑露出来（照 PiliPlus 的手感）
+    var navVisible by remember { mutableStateOf(true) }
+    val scrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.Drag) {
+                    when {
+                        available.y < -4f -> navVisible = false
+                        available.y > 4f -> navVisible = true
+                    }
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
     var noteWord by remember { mutableStateOf<String?>(null) }
     var renameId by remember { mutableStateOf<Long?>(null) }
     var renameInitial by remember { mutableStateOf("") }
@@ -132,12 +151,12 @@ fun RootScreen(vm: MainViewModel) {
         )
 
         else -> Box(Modifier.fillMaxSize()) {
-            // 内容自己让出状态栏高度；底部留出悬浮导航栏的位置
+            // 内容铺满整屏（各页自己留出底部安全区），胶囊浮在上面
             Box(
                 Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(bottom = 92.dp)
+                    .nestedScroll(scrollConnection)
             ) {
                 when (tab) {
                     Tab.Camera -> CaptureScreen(
@@ -200,6 +219,14 @@ fun RootScreen(vm: MainViewModel) {
             }
 
             // 悬浮导航栏（PiliPlus 那种：不贴边、圆角、浮在内容上）
+            androidx.compose.animation.AnimatedVisibility(
+                visible = navVisible,
+                enter = androidx.compose.animation.slideInVertically { it } +
+                    androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutVertically { it } +
+                    androidx.compose.animation.fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
             FloatingNavBar(
                 current = tab,
                 dueCount = wordbook.due,
@@ -208,10 +235,10 @@ fun RootScreen(vm: MainViewModel) {
                     if (next == Tab.Wordbook) vm.refreshWordbook()
                 },
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(horizontal = 30.dp, vertical = 14.dp)
             )
+            }
         }
     }
 

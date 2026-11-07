@@ -113,7 +113,7 @@ fun CaptureScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().padding(bottom = 96.dp)) {
         // 标题栏：内容画到状态栏下面，只在这里让出高度
         Row(
             Modifier

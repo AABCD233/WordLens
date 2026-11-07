@@ -96,7 +96,10 @@ fun SearchScreen(
                 }
             }
 
-            suggestions.isNotEmpty() -> LazyColumn(Modifier.fillMaxSize()) {
+            suggestions.isNotEmpty() -> LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 130.dp)
+            ) {
                 items(suggestions, key = { it }) { w ->
                     Row(
                         Modifier

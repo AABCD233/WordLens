@@ -134,6 +134,11 @@ fun WordLensTheme(
             val window = (context as? Activity)?.window ?: return@SideEffect
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // 不强制给系统栏加半透明"刮痕"底色，否则底部会出现一条和页面不同色的带
+                window.isNavigationBarContrastEnforced = false
+                window.isStatusBarContrastEnforced = false
+            }
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme
                 isAppearanceLightNavigationBars = !darkTheme
