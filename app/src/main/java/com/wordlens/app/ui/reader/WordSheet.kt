@@ -32,6 +32,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -65,6 +67,16 @@ fun WordSheet(
     onLookupWord: (String) -> Unit,
     onCopy: (String) -> Unit
 ) {
+    // 关键：用 Dialog 而不是"画在同一层的 Box"。
+    // 同一层覆盖时，触摸事件仍可能落到下面的列表（表现为第一次点没反应、第二次才关掉）；
+    // Dialog 是独立窗口，事件根本传不到 Activity 的内容层。
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
     Box(Modifier.fillMaxSize()) {
         // 遮罩：点空白处关闭
         Box(
@@ -123,6 +135,7 @@ fun WordSheet(
                 Spacer(Modifier.height(18.dp))
             }
         }
+    }
     }
 }
 

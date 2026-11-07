@@ -118,7 +118,6 @@ fun CaptureScreen(
         Row(
             Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
                 .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

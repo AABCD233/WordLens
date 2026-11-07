@@ -25,6 +25,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import com.wordlens.app.data.db.DictStatus
 import com.wordlens.app.data.tts.TtsEngine
 import androidx.compose.runtime.remember
@@ -119,42 +131,14 @@ fun RootScreen(vm: MainViewModel) {
             onMessage = vm::toast
         )
 
-        else -> Scaffold(
-            // 内容自己处理状态栏，否则永远是一块实心色条，谈不上沉浸
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            bottomBar = {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 3.dp
-                ) {
-                    NavigationBarItem(
-                        selected = tab == Tab.Camera,
-                        onClick = { tab = Tab.Camera },
-                        icon = { Emoji("📷") },
-                        label = { Text("拍照") }
-                    )
-                    NavigationBarItem(
-                        selected = tab == Tab.Search,
-                        onClick = { tab = Tab.Search },
-                        icon = { Emoji("🔍") },
-                        label = { Text("查词") }
-                    )
-                    NavigationBarItem(
-                        selected = tab == Tab.Wordbook,
-                        onClick = { tab = Tab.Wordbook; vm.refreshWordbook() },
-                        icon = { Emoji("📚") },
-                        label = { Text(if (wordbook.due > 0) "生词 ${wordbook.due}" else "生词本") }
-                    )
-                    NavigationBarItem(
-                        selected = tab == Tab.Settings,
-                        onClick = { tab = Tab.Settings },
-                        icon = { Emoji("⚙️") },
-                        label = { Text("设置") }
-                    )
-                }
-            }
-        ) { insets ->
-            Box(Modifier.fillMaxSize().padding(insets)) {
+        else -> Box(Modifier.fillMaxSize()) {
+            // 内容自己让出状态栏高度；底部留出悬浮导航栏的位置
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(bottom = 92.dp)
+            ) {
                 when (tab) {
                     Tab.Camera -> CaptureScreen(
                         recent = library,
@@ -169,8 +153,7 @@ fun RootScreen(vm: MainViewModel) {
                         onMessage = vm::toast
                     )
 
-                    Tab.Search -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
-                        SearchScreen(
+                    Tab.Search -> SearchScreen(
                         query = searchQuery,
                         suggestions = suggestions,
                         dictReady = dictStatus == DictStatus.READY,
@@ -179,11 +162,9 @@ fun RootScreen(vm: MainViewModel) {
                         onSubmit = { q -> vm.searchWord(q) },
                         onPick = { w -> vm.searchWord(w) },
                         onMessage = vm::toast
-                        )
-                    }
+                    )
 
-                    Tab.Wordbook -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
-                        WordbookScreen(
+                    Tab.Wordbook -> WordbookScreen(
                         state = wordbook,
                         dictReady = dictStatus == DictStatus.READY,
                         onSearch = vm::searchWordbook,
@@ -194,11 +175,9 @@ fun RootScreen(vm: MainViewModel) {
                             vm.startReview()
                         },
                         onRefresh = { vm.refreshWordbook() }
-                        )
-                    }
+                    )
 
-                    Tab.Settings -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
-                        SettingsScreen(
+                    Tab.Settings -> SettingsScreen(
                         settings = settings,
                         dictStatus = dictStatus,
                         dictWords = dictWords,
@@ -216,10 +195,23 @@ fun RootScreen(vm: MainViewModel) {
                         onExportBackup = { uri -> vm.exportBackup(uri) },
                         onImportBackup = { uri -> vm.importBackup(uri) },
                         onMessage = vm::toast
-                        )
-                    }
+                    )
                 }
             }
+
+            // 悬浮导航栏（PiliPlus 那种：不贴边、圆角、浮在内容上）
+            FloatingNavBar(
+                current = tab,
+                dueCount = wordbook.due,
+                onSelect = { next ->
+                    tab = next
+                    if (next == Tab.Wordbook) vm.refreshWordbook()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 30.dp, vertical = 14.dp)
+            )
         }
     }
 
@@ -298,6 +290,66 @@ fun RootScreen(vm: MainViewModel) {
                 )
             }
         }
+    }
+}
+
+/** 悬浮式底部导航：圆角胶囊 + 选中态药丸，浮在内容之上 */
+@Composable
+private fun FloatingNavBar(
+    current: Tab,
+    dueCount: Int,
+    onSelect: (Tab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(30.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NavItem("📷", "拍照", current == Tab.Camera) { onSelect(Tab.Camera) }
+            NavItem("🔍", "查词", current == Tab.Search) { onSelect(Tab.Search) }
+            NavItem(
+                "📚",
+                if (dueCount > 0) "复习 $dueCount" else "生词本",
+                current == Tab.Wordbook
+            ) { onSelect(Tab.Wordbook) }
+            NavItem("⚙️", "设置", current == Tab.Settings) { onSelect(Tab.Settings) }
+        }
+    }
+}
+
+@Composable
+private fun NavItem(emoji: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val bg by androidx.compose.animation.animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.secondaryContainer
+        else Color.Transparent,
+        label = "navBg"
+    )
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(emoji, fontSize = 18.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
