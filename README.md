@@ -1,6 +1,6 @@
 # 词镜 WordLens
 
-**拍一页英文，点哪个词查哪个词。** Android · 离线优先 · 照片不出手机
+**词镜 WordLens｜拍照识英文，点词即查义** Android · 离线优先 · 照片不出手机
 
 [![下载最新 APK](https://img.shields.io/badge/⬇%20下载%20APK-Releases-12B39A?style=for-the-badge)](https://github.com/AABCD233/WordLens/releases/latest)
 [![更新日志](https://img.shields.io/badge/更新日志-Releases-555?style=for-the-badge)](https://github.com/AABCD233/WordLens/releases)
@@ -10,10 +10,10 @@
 ---
 
 > [!WARNING]
-> **AI 相关功能目前是实验性的。** 代码写完了、能编译，但**作者本人还没有完整测试过**
+> **AI 相关功能目前是实验性的，尚未完整测试过**
 > （AI 详解 / AI 例句 / AI 搭配 / 整篇精读 / 用 AI 接口翻译这几项）。
-> 不同模型和接口的返回格式差异很大，可能出现报错、答非所问、超时，或者**产生费用**。
-> 请自备 API Key、谨慎使用；遇到问题欢迎提 Issue，那正是我在收集的东西。
+> 不同模型和接口的返回格式差异很大，可能出现bug。
+> 请自备 API Key、谨慎使用，**ai功能所产生费用自负**；遇到问题欢迎提 Issue，那正是我在收集的东西。
 
 ## 下载安装
 
