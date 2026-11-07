@@ -19,6 +19,9 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -372,13 +375,13 @@ private fun ShutterButton(onClick: () -> Unit) {
                 indication = null
             ) { onClick() }
             .pointerInput(Unit) {
-                androidx.compose.foundation.gestures.detectTapGestures(
-                    onPress = {
-                        pressed.value = true
-                        tryAwaitRelease()
-                        pressed.value = false
-                    }
-                )
+                // 按下缩小反馈：用 awaitEachGesture 手动跟踪按下/抬起
+                androidx.compose.foundation.gestures.awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    pressed.value = true
+                    waitForUpOrCancellation()
+                    pressed.value = false
+                }
             },
         contentAlignment = Alignment.Center
     ) {
