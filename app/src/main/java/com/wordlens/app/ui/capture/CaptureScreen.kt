@@ -359,43 +359,18 @@ fun CaptureScreen(
     }
 }
 
-/** 相机快门：外圈细环 + 内圈实心圆，按下时内圈缩小一点 */
+/** 相机快门：白色细环 + 实心内圈，点按即拍 */
 @Composable
 private fun ShutterButton(onClick: () -> Unit) {
-    val pressed = remember { androidx.compose.runtime.mutableStateOf(false) }
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (pressed.value) 0.86f else 1f, label = "shutter"
-    )
     Box(
         modifier = Modifier
             .size(74.dp)
             .clip(CircleShape)
-            .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                indication = null
-            ) { onClick() }
-            .pointerInput(Unit) {
-                // 按下缩小反馈：用 awaitEachGesture 手动跟踪按下/抬起
-                androidx.compose.foundation.gestures.awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    pressed.value = true
-                    waitForUpOrCancellation()
-                    pressed.value = false
-                }
-            },
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            Modifier
-                .size(74.dp)
-                .border(3.dp, Color.White, CircleShape)
-        )
-        Box(
-            Modifier
-                .size(58.dp)
-                .graphicsLayer { scaleX = scale; scaleY = scale }
-                .background(Color.White, CircleShape)
-        )
+        Box(Modifier.size(72.dp).border(3.dp, Color.White, CircleShape))
+        Box(Modifier.size(56.dp).background(Color.White, CircleShape))
     }
 }
 
