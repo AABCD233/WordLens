@@ -100,6 +100,10 @@ fun CaptureScreen(
     var permissionAsked by remember { mutableStateOf(false) }
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    // 连拍模式：先攒几张，再一起识别
+    var batchMode by remember { mutableStateOf(false) }
+    val pending = remember { androidx.compose.runtime.mutableStateListOf<Pair<Uri, java.io.File?>>() }
+    val batching = batchMode && pending.isNotEmpty()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -115,7 +119,12 @@ fun CaptureScreen(
         if (uri != null) {
             scope.launch {
                 val copied = withContext(Dispatchers.IO) { ImageFiles.copyIntoApp(context, uri) }
-                onCaptured(uri, copied)
+                if (batchMode) {
+                    pending.add(uri to copied)
+                    onMessage("已加入 ${pending.size} 张")
+                } else {
+                    onCaptured(uri, copied)
+                }
             }
         }
     }
@@ -242,7 +251,12 @@ fun CaptureScreen(
                         ContextCompat.getMainExecutor(context),
                         object : ImageCapture.OnImageSavedCallback {
                             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                onCaptured(Uri.fromFile(file), file)
+                                if (batchMode) {
+                                    pending.add(Uri.fromFile(file) to file)
+                                    onMessage("已拍 ${pending.size} 张，点「识别」一次性处理")
+                                } else {
+                                    onCaptured(Uri.fromFile(file), file)
+                                }
                             }
 
                             override fun onError(exception: ImageCaptureException) {
@@ -252,6 +266,36 @@ fun CaptureScreen(
                     )
                 },
             )
+
+            OutlinedButton(
+                onClick = {
+                    if (batchMode && pending.isNotEmpty()) {
+                        // 一次识别多张：逐张跑，最后停在最后一张的阅读页
+                        val items = pending.toList()
+                        pending.clear()
+                        batchMode = false
+                        scope.launch {
+                            items.forEachIndexed { i, (u, f) ->
+                                onCaptured(u, f)
+                                if (i < items.lastIndex) kotlinx.coroutines.delay(1500)
+                            }
+                            onMessage("已识别 ${items.size} 张")
+                        }
+                    } else {
+                        batchMode = !batchMode
+                        if (!batchMode) pending.clear()
+                        onMessage(if (batchMode) "连拍已开：多拍几张再一起识别" else "连拍已关")
+                    }
+                }
+            ) {
+                Text(
+                    when {
+                        batchMode && pending.isNotEmpty() -> "识别 ${pending.size} 张"
+                        batchMode -> "结束连拍"
+                        else -> "连拍"
+                    }
+                )
+            }
 
             OutlinedButton(onClick = {
                 lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
