@@ -38,6 +38,10 @@ data class Settings(
     val azureRegion: String = "global",
     /** 当前使用的扩展词典包 id；空串 = 内置核心词典 */
     val activePackId: String = "",
+    /** 下载 GitHub 资源时是否走加速镜像 */
+    val githubAccel: Boolean = true,
+    /** 首次启动的免责声明是否已确认 */
+    val disclaimerAccepted: Boolean = false,
     /** 直接查词的历史，逗号分隔（最多 15 个） */
     val searchHistory: String = "",
     /** 朗读引擎：system = 系统 TTS，online = 有道发音（联网） */
@@ -75,6 +79,8 @@ class AppSettings(context: Context) {
         azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
         azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global",
         activePackId = prefs.getString(K_PACK, "") ?: "",
+        githubAccel = prefs.getBoolean(K_ACCEL, true),
+        disclaimerAccepted = prefs.getBoolean(K_DISCLAIMER, false),
         searchHistory = prefs.getString(K_HISTORY, "") ?: "",
         ttsMode = prefs.getString(K_TTS_MODE, "system") ?: "system",
         dynamicColor = prefs.getBoolean(K_DYNAMIC, true)
@@ -102,6 +108,8 @@ class AppSettings(context: Context) {
             putString(K_AZ_KEY, next.azureKey)
             putString(K_AZ_REGION, next.azureRegion)
             putString(K_PACK, next.activePackId)
+            putBoolean(K_ACCEL, next.githubAccel)
+            putBoolean(K_DISCLAIMER, next.disclaimerAccepted)
             putString(K_HISTORY, next.searchHistory)
             putString(K_TTS_MODE, next.ttsMode)
             putBoolean(K_DYNAMIC, next.dynamicColor)
@@ -135,5 +143,7 @@ class AppSettings(context: Context) {
         const val K_DYNAMIC = "dynamic_color"
         const val K_TTS_MODE = "tts_mode"
         const val K_HISTORY = "search_history"
+        const val K_ACCEL = "github_accel"
+        const val K_DISCLAIMER = "disclaimer_accepted"
     }
 }

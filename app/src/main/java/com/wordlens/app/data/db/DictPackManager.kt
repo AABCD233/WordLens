@@ -85,8 +85,11 @@ class DictPackManager(
         name: String,
         onProgress: (Long) -> Unit = {}
     ): DictPack {
+        // 用户关掉加速时，只留直连
+        val list = if (settings.state.value.githubAccel) urls
+        else urls.filter { it == OFFICIAL_PACK_URL }
         var last: Throwable? = null
-        for ((i, u) in urls.withIndex()) {
+        for ((i, u) in list.withIndex()) {
             try {
                 return installOne(u, name, onProgress)
             } catch (t: Throwable) {
@@ -231,12 +234,8 @@ class DictPackManager(
          * 按「先快后稳」排的候选源：gh-proxy 系镜像走一遍，最后才直连 GitHub。
          * 任何一个成功就用它。
          */
-        val OFFICIAL_PACK_MIRRORS: List<String> = listOf(
-            "https://gh-proxy.org/" + OFFICIAL_PACK_URL,
-            "https://v4.gh-proxy.org/" + OFFICIAL_PACK_URL,
-            "https://ghfast.top/" + OFFICIAL_PACK_URL,
-            "https://gh-proxy.com/" + OFFICIAL_PACK_URL,
-            OFFICIAL_PACK_URL
-        )
+        /** 官方包候选地址（是否真的走镜像由设置里的开关决定） */
+        val OFFICIAL_PACK_MIRRORS: List<String> =
+            com.wordlens.app.data.AccelMirrors.candidates(OFFICIAL_PACK_URL, true)
     }
 }

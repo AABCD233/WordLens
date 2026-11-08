@@ -520,6 +520,32 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         refreshWordbook()
     }
 
+    /** 检查更新：查到新版本就提示，并给出 Release 地址 */
+    fun checkUpdate() {
+        scope.launch {
+            _messages.tryEmit("正在检查更新…")
+            val r = app.updates.check()
+            r.onSuccess { latest ->
+                if (latest.newer) {
+                    _messages.tryEmit("发现新版本 ${latest.tag}，可在 Releases 下载")
+                    _lastReleaseUrl = latest.url
+                } else {
+                    _messages.tryEmit("已是最新版本（${com.wordlens.app.BuildConfig.VERSION_NAME}）")
+                }
+            }.onFailure {
+                _messages.tryEmit("检查更新失败：${it.message ?: "网络不通"}")
+            }
+        }
+    }
+
+    /** 检查到的新版本页面，供界面跳转 */
+    private var _lastReleaseUrl: String? = null
+    fun lastReleaseUrl(): String = _lastReleaseUrl ?: "https://github.com/AABCD233/WordLens/releases"
+
+    fun acceptDisclaimer() {
+        updateSettings { it.copy(disclaimerAccepted = true) }
+    }
+
     // ---------------- 备份 / 恢复 ----------------
 
     fun exportBackup(uri: android.net.Uri) {

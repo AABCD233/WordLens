@@ -160,3 +160,39 @@ fun ConfirmDeleteDialog(
         }
     )
 }
+
+
+/** 首次启动的免责声明：读 5 秒才允许继续 */
+@Composable
+fun DisclaimerDialog(onAccept: () -> Unit) {
+    var left by remember { mutableStateOf(5) }
+    LaunchedEffect(Unit) {
+        while (left > 0) {
+            kotlinx.coroutines.delay(1000)
+            left -= 1
+        }
+    }
+    AlertDialog(
+        // 点外部/返回都不关，必须读完点按钮
+        onDismissRequest = {},
+        title = { Text("使用前请知悉") },
+        text = {
+            Column {
+                Text(
+                    "1. 本项目由 AI 辅助开发，仍在开发初期，可能有 bug，请自行评估风险。\n" +
+                        "2. 查词结果来自开源词典与第三方服务，仅供参考，不作为考试或法律依据。\n" +
+                        "3. 照片只在本机识别，不会上传；联网功能（在线词典 / 翻译 / AI / 在线朗读）会把你要查的单词或句子发出去。\n" +
+                        "4. AI 相关功能为实验性，可能需要你自己配置接口并产生费用。\n" +
+                        "5. 使用本 App 即表示你理解并接受以上内容。",
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 21.sp
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onAccept, enabled = left == 0) {
+                Text(if (left == 0) "我知道了" else "请阅读（${left}s）")
+            }
+        }
+    )
+}

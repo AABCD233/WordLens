@@ -60,6 +60,7 @@ fun SettingsScreen(
     onInstallOfficial: () -> Unit,
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
+    onCheckUpdate: () -> Unit,
     onClearHistory: () -> Unit,
     onClearImages: () -> Unit,
     onExportBackup: (android.net.Uri) -> Unit,
@@ -351,6 +352,17 @@ fun SettingsScreen(
                 lineHeight = 19.sp
             )
             Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = onCheckUpdate, modifier = Modifier.fillMaxWidth()) {
+                Text("检查更新")
+            }
+            ToggleRow(
+                "使用 GitHub 加速",
+                "下载词典包、检查更新时走镜像站点；关掉则直连",
+                settings.githubAccel
+            ) { checked -> onUpdate { it.copy(githubAccel = checked) } }
+
+            Spacer(Modifier.height(10.dp))
             Text(
                 "仓库地址",
                 style = MaterialTheme.typography.labelMedium,

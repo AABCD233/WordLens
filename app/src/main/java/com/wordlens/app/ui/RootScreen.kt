@@ -213,6 +213,7 @@ fun RootScreen(vm: MainViewModel) {
                         onDeletePack = vm::deletePack,
                         onClearHistory = vm::clearHistory,
                         onClearImages = vm::clearImages,
+                        onCheckUpdate = vm::checkUpdate,
                         onExportBackup = { uri -> vm.exportBackup(uri) },
                         onImportBackup = { uri -> vm.importBackup(uri) },
                         onMessage = vm::toast
@@ -242,6 +243,10 @@ fun RootScreen(vm: MainViewModel) {
             )
             }
         }
+    }
+
+    if (!settings.disclaimerAccepted) {
+        DisclaimerDialog(onAccept = vm::acceptDisclaimer)
     }
 
     // 词卡：所有页面共用（拍照阅读、直接查词都能弹）
