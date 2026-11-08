@@ -46,12 +46,13 @@ import androidx.compose.ui.text.AnnotatedString
 import com.wordlens.app.ui.reader.WordSheet
 import com.wordlens.app.ui.search.SearchScreen
 import com.wordlens.app.ui.capture.CaptureScreen
+import com.wordlens.app.ui.dictation.DictationScreen
 import com.wordlens.app.ui.reader.ReaderScreen
 import com.wordlens.app.ui.settings.SettingsScreen
 import com.wordlens.app.ui.wordbook.ReviewScreen
 import com.wordlens.app.ui.wordbook.WordbookScreen
 
-private enum class Tab { Camera, Search, Wordbook, Settings }
+private enum class Tab { Camera, Search, Wordbook, Dictation, Settings }
 
 /**
  * 顶层导航：三页（拍照 / 生词本 / 设置）+ 阅读页 + 复习页。
@@ -64,6 +65,7 @@ fun RootScreen(vm: MainViewModel) {
     val word by vm.word.collectAsState()
     val wordbook by vm.wordbook.collectAsState()
     val review by vm.review.collectAsState()
+    val dictation by vm.dictation.collectAsState()
     val settings by vm.settings.collectAsState()
     val dictStatus by vm.dictStatus.collectAsState()
     val dictWords by vm.dictWords.collectAsState()
@@ -195,6 +197,17 @@ fun RootScreen(vm: MainViewModel) {
                             vm.startReview()
                         },
                         onRefresh = { vm.refreshWordbook() }
+                    )
+
+                    Tab.Dictation -> DictationScreen(
+                        state = dictation,
+                        history = vm.dictationHistory(),
+                        onStart = vm::startDictation,
+                        onInput = vm::dictationInput,
+                        onSubmit = vm::submitDictation,
+                        onNext = vm::nextDictation,
+                        onFinish = vm::finishDictation,
+                        onSpeak = vm::speak
                     )
 
                     Tab.Settings -> SettingsScreen(
@@ -334,6 +347,7 @@ private fun FloatingNavBar(
                 if (dueCount > 0) "复习 $dueCount" else "生词本",
                 current == Tab.Wordbook
             ) { onSelect(Tab.Wordbook) }
+            NavItem(NavIconKind.Pen, "默写", current == Tab.Dictation) { onSelect(Tab.Dictation) }
             NavItem(NavIconKind.Settings, "设置", current == Tab.Settings) { onSelect(Tab.Settings) }
         }
     }

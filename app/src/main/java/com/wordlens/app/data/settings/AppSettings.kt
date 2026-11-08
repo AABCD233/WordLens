@@ -42,6 +42,8 @@ data class Settings(
     val githubAccel: Boolean = true,
     /** 首次启动的免责声明是否已确认 */
     val disclaimerAccepted: Boolean = false,
+    /** 默写成绩历史：每条形如 "答对/总数@时间"，换行分隔 */
+    val dictationHistory: String = "",
     /** 直接查词的历史，逗号分隔（最多 15 个） */
     val searchHistory: String = "",
     /** 朗读引擎：system = 系统 TTS，online = 有道发音（联网） */
@@ -81,6 +83,7 @@ class AppSettings(context: Context) {
         activePackId = prefs.getString(K_PACK, "") ?: "",
         githubAccel = prefs.getBoolean(K_ACCEL, true),
         disclaimerAccepted = prefs.getBoolean(K_DISCLAIMER, false),
+        dictationHistory = prefs.getString(K_DICT_HIST, "") ?: "",
         searchHistory = prefs.getString(K_HISTORY, "") ?: "",
         ttsMode = prefs.getString(K_TTS_MODE, "system") ?: "system",
         dynamicColor = prefs.getBoolean(K_DYNAMIC, true)
@@ -110,6 +113,7 @@ class AppSettings(context: Context) {
             putString(K_PACK, next.activePackId)
             putBoolean(K_ACCEL, next.githubAccel)
             putBoolean(K_DISCLAIMER, next.disclaimerAccepted)
+            putString(K_DICT_HIST, next.dictationHistory)
             putString(K_HISTORY, next.searchHistory)
             putString(K_TTS_MODE, next.ttsMode)
             putBoolean(K_DYNAMIC, next.dynamicColor)
@@ -143,6 +147,7 @@ class AppSettings(context: Context) {
         const val K_DYNAMIC = "dynamic_color"
         const val K_TTS_MODE = "tts_mode"
         const val K_HISTORY = "search_history"
+        const val K_DICT_HIST = "dictation_history"
         const val K_ACCEL = "github_accel"
         const val K_DISCLAIMER = "disclaimer_accepted"
     }

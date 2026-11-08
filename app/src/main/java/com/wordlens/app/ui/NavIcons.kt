@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
  * 不用 material-icons-extended：那套图标让 APK 多出好几 MB，
  * 而我们只需要 4 个形状，Canvas 画一下就行，风格也能统一（2dp 圆头描边）。
  */
-enum class NavIconKind { Camera, Search, Book, Settings }
+enum class NavIconKind { Camera, Search, Book, Pen, Settings }
 
 @Composable
 fun NavIcon(kind: NavIconKind, tint: Color, modifier: Modifier = Modifier, sizeDp: Int = 22, stroke: Float = 2f) {
@@ -64,6 +64,14 @@ fun NavIcon(kind: NavIconKind, tint: Color, modifier: Modifier = Modifier, sizeD
                 }
                 drawPath(path, tint, style = s)
                 drawLine(tint, Offset(w * 0.5f, h * 0.22f), Offset(w * 0.5f, h * 0.84f), stroke.dp.toPx(), StrokeCap.Round)
+            }
+
+            NavIconKind.Pen -> {
+                // 笔：一条斜线 + 笔尖
+                drawLine(tint, Offset(w * 0.20f, h * 0.80f), Offset(w * 0.72f, h * 0.22f), stroke.dp.toPx(), StrokeCap.Round)
+                drawLine(tint, Offset(w * 0.72f, h * 0.22f), Offset(w * 0.84f, h * 0.34f), stroke.dp.toPx(), StrokeCap.Round)
+                drawLine(tint, Offset(w * 0.84f, h * 0.34f), Offset(w * 0.32f, h * 0.84f), stroke.dp.toPx(), StrokeCap.Round)
+                drawLine(tint, Offset(w * 0.20f, h * 0.80f), Offset(w * 0.18f, h * 0.88f), stroke.dp.toPx(), StrokeCap.Round)
             }
 
             NavIconKind.Settings -> {

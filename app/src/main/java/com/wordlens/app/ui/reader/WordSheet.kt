@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.FlowRow
 import com.wordlens.app.data.dict.AiKind
 import com.wordlens.app.data.model.Definition
 import com.wordlens.app.data.settings.Settings
+import com.wordlens.app.ui.SelectableWord
 import com.wordlens.app.ui.WordUi
 
 /**
@@ -332,12 +333,13 @@ private fun DefinitionBody(
                 }
             }
             meaning.definitions.take(4).forEach { d ->
-                Text(
-                    "· ${d.text}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    lineHeight = 21.sp
+                // 长按句子里的任意单词直接查它
+                SelectableWord(
+                    text = "· ${d.text}",
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 21.sp),
+                    onWord = onLookupWord
                 )
-                d.example?.let { ex -> ExampleBlock(ex, word, onTranslateExample) }
+                d.example?.let { ex -> ExampleBlock(ex, word, onTranslateExample, onLookupWord) }
             }
             Spacer(Modifier.height(6.dp))
         }
@@ -441,16 +443,23 @@ private fun DefinitionBody(
 
 /** 一句英文例句 + 按需翻译 */
 @Composable
-private fun ExampleBlock(example: String, word: WordUi, onTranslate: (String) -> Unit) {
+private fun ExampleBlock(
+    example: String,
+    word: WordUi,
+    onTranslate: (String) -> Unit,
+    onLongPressWord: (String) -> Unit
+) {
     val translated = word.exampleZh[example]
     Column(Modifier.padding(start = 6.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "e.g. $example",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 19.sp,
-                modifier = Modifier.weight(1f)
+            SelectableWord(
+                text = "e.g. $example",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 19.sp
+                ),
+                modifier = Modifier.weight(1f),
+                onWord = onLongPressWord
             )
             if (translated == null) {
                 if (word.translatingExample == example) {

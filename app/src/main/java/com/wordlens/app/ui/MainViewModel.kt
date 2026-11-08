@@ -73,6 +73,19 @@ data class WordbookUi(
     val query: String = ""
 )
 
+data class DictationUi(
+    val active: Boolean = false,
+    val finished: Boolean = false,
+    val queue: List<SavedWord> = emptyList(),
+    val index: Int = 0,
+    val input: String = "",
+    val revealed: Boolean = false,
+    val lastCorrect: Boolean = false,
+    val correct: Int = 0,
+    /** true = 看英文写中文 */
+    val reverse: Boolean = false
+)
+
 data class ReviewUi(
     val active: Boolean = false,
     val queue: List<SavedWord> = emptyList(),
@@ -101,6 +114,9 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     private val _wordbook = MutableStateFlow(WordbookUi())
     val wordbook: StateFlow<WordbookUi> = _wordbook.asStateFlow()
+
+    private val _dictation = MutableStateFlow(DictationUi())
+    val dictation: StateFlow<DictationUi> = _dictation.asStateFlow()
 
     private val _review = MutableStateFlow(ReviewUi())
     val review: StateFlow<ReviewUi> = _review.asStateFlow()
@@ -512,6 +528,75 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
                 reviewed = state.reviewed + 1
             )
             if (done) refreshWordbook()
+        }
+    }
+
+    // ---------------- 默写 ----------------
+
+    fun dictationHistory(): List<String> =
+        settings.value.dictationHistory.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+
+    fun startDictation(count: Int, reverse: Boolean) {
+        scope.launch {
+            val pool = app.database.allSavedWords()
+            if (pool.isEmpty()) {
+                _messages.tryEmit("生词本是空的，先加几个词再来默写")
+                return@launch
+            }
+            val picked = pool.shuffled().take(count.coerceIn(1, pool.size))
+            _dictation.value = DictationUi(active = true, queue = picked, reverse = reverse)
+        }
+    }
+
+    fun dictationInput(text: String) {
+        _dictation.value = _dictation.value.copy(input = text)
+    }
+
+    fun submitDictation() {
+        val st = _dictation.value
+        val cur = st.queue.getOrNull(st.index) ?: return
+        val ok = judge(st.input, cur, st.reverse)
+        _dictation.value = st.copy(
+            revealed = true,
+            lastCorrect = ok,
+            correct = st.correct + if (ok) 1 else 0
+        )
+    }
+
+    fun nextDictation() {
+        val st = _dictation.value
+        val nextIndex = st.index + 1
+        _dictation.value = if (nextIndex >= st.queue.size) {
+            recordDictation(st.correct, st.queue.size)
+            st.copy(finished = true, active = false, index = nextIndex)
+        } else {
+            st.copy(index = nextIndex, input = "", revealed = false, lastCorrect = false)
+        }
+    }
+
+    fun finishDictation() {
+        _dictation.value = DictationUi()
+    }
+
+    private fun recordDictation(correct: Int, total: Int) {
+        val line = "$correct/$total@${formatTimestamp()}"
+        val kept = (listOf(line) + dictationHistory()).take(20)
+        updateSettings { it.copy(dictationHistory = kept.joinToString("\n")) }
+    }
+
+    private fun formatTimestamp(): String =
+        java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date())
+
+    /** 英文题严格比对；中文题按命中字数粗判（>=2 个字算对） */
+    private fun judge(input: String, w: SavedWord, reverse: Boolean): Boolean {
+        val ans = input.trim()
+        if (ans.isEmpty()) return false
+        return if (!reverse) {
+            ans.equals(w.word, ignoreCase = true)
+        } else {
+            val zh = w.translation
+            ans.count { it in zh } >= 2
         }
     }
 
