@@ -627,6 +627,15 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private var _lastReleaseUrl: String? = null
     fun lastReleaseUrl(): String = _lastReleaseUrl ?: "https://github.com/AABCD233/WordLens/releases"
 
+    /** 开/关悬浮球；返回 false 表示缺少「显示在其他应用上层」权限 */
+    fun toggleFloating(on: Boolean): Boolean {
+        if (on && !android.provider.Settings.canDrawOverlays(app.appContext)) return false
+        updateSettings { it.copy(floatingButton = on) }
+        if (on) com.wordlens.app.floating.FloatingService.start(app.appContext)
+        else com.wordlens.app.floating.FloatingService.stop(app.appContext)
+        return true
+    }
+
     fun acceptDisclaimer() {
         updateSettings { it.copy(disclaimerAccepted = true) }
     }

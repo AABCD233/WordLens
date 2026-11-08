@@ -61,6 +61,8 @@ fun SettingsScreen(
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
     onCheckUpdate: () -> Unit,
+    onToggleFloating: (Boolean) -> Boolean,
+    onRequestOverlayPermission: () -> Unit,
     onClearHistory: () -> Unit,
     onClearImages: () -> Unit,
     onExportBackup: (android.net.Uri) -> Unit,
@@ -356,6 +358,17 @@ fun SettingsScreen(
             OutlinedButton(onClick = onCheckUpdate, modifier = Modifier.fillMaxWidth()) {
                 Text("检查更新")
             }
+            ToggleRow(
+                "悬浮球查词",
+                "开启后在任意应用上方显示一个「词」按钮，点一下回来查词（需要「显示在其他应用上层」权限）",
+                settings.floatingButton
+            ) { checked ->
+                if (!onToggleFloating(checked) && checked) {
+                    onMessage("请先允许「显示在其他应用的上层」，再回来打开开关")
+                    onRequestOverlayPermission()
+                }
+            }
+
             ToggleRow(
                 "使用 GitHub 加速",
                 "下载词典包、检查更新时走镜像站点；关掉则直连",

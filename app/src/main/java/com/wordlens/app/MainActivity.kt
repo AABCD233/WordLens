@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,10 +38,19 @@ class MainActivity : ComponentActivity() {
         val viewModel: MainViewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
         mainViewModel = viewModel
 
+        // 从悬浮球进来时，直接弹查词框
+        quickSearch = intent?.getBooleanExtra(
+            com.wordlens.app.floating.FloatingService.EXTRA_QUICK_SEARCH, false
+        ) == true
+
         setContent {
             val settings by container.settings.state.collectAsState()
             WordLensTheme(dynamicColor = settings.dynamicColor) {
-                RootScreen(viewModel)
+                RootScreen(
+                    vm = viewModel,
+                    quickSearch = quickSearch,
+                    onQuickConsumed = { quickSearch = false }
+                )
             }
         }
 
@@ -48,8 +59,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.getBooleanExtra(com.wordlens.app.floating.FloatingService.EXTRA_QUICK_SEARCH, false)) {
+            quickSearch = true
+        }
         mainViewModel?.let { handleSharedImage(intent, it) }
     }
+
+    /** 悬浮球点开时要自动弹查词框 */
+    private var quickSearch by mutableStateOf(false)
 
     /** 从相册/文件「分享 → 词镜」进来时，直接识别这张图 */
     private fun handleSharedImage(intent: Intent?, vm: MainViewModel) {

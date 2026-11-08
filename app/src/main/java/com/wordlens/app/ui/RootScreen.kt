@@ -59,7 +59,11 @@ private enum class Tab { Camera, Search, Wordbook, Dictation, Settings }
  * 只有 5 个目的地，自己管路由比引 navigation-compose 更省事也更可控。
  */
 @Composable
-fun RootScreen(vm: MainViewModel) {
+fun RootScreen(
+    vm: MainViewModel,
+    quickSearch: Boolean = false,
+    onQuickConsumed: () -> Unit = {}
+) {
     val library by vm.library.collectAsState()
     val reader by vm.reader.collectAsState()
     val word by vm.word.collectAsState()
@@ -227,6 +231,14 @@ fun RootScreen(vm: MainViewModel) {
                         onClearHistory = vm::clearHistory,
                         onClearImages = vm::clearImages,
                         onCheckUpdate = vm::checkUpdate,
+                        onToggleFloating = vm::toggleFloating,
+                        onRequestOverlayPermission = {
+                            val i = android.content.Intent(
+                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                android.net.Uri.parse("package:" + ctx.packageName)
+                            )
+                            runCatching { ctx.startActivity(i) }
+                        },
                         onExportBackup = { uri -> vm.exportBackup(uri) },
                         onImportBackup = { uri -> vm.importBackup(uri) },
                         onMessage = vm::toast
@@ -256,6 +268,24 @@ fun RootScreen(vm: MainViewModel) {
             )
             }
         }
+    }
+
+    // 悬浮球点进来：直接弹输入框查词
+    var showQuickInput by remember { mutableStateOf(false) }
+    LaunchedEffect(quickSearch) {
+        if (quickSearch) {
+            showQuickInput = true
+            onQuickConsumed()
+        }
+    }
+    if (showQuickInput) {
+        WordInputDialog(
+            onDismiss = { showQuickInput = false },
+            onConfirm = { w ->
+                showQuickInput = false
+                vm.searchWord(w)
+            }
+        )
     }
 
     if (!settings.disclaimerAccepted) {
