@@ -53,7 +53,6 @@ fun SettingsScreen(
     ttsReady: Boolean,
     onUpdate: ((Settings) -> Settings) -> Unit,
     onClearCache: () -> Unit,
-    onTestSpeak: () -> Unit,
     packs: List<DictPack>,
     activePackId: String,
     packBusy: String?,
@@ -195,19 +194,7 @@ fun SettingsScreen(
                 }) { Text("填入官方地址", fontSize = 12.sp) }
             }
 
-            Spacer(Modifier.height(12.dp))
-            SubTitle("缓存清理")
-            OutlinedButton(onClick = onClearCache, modifier = Modifier.fillMaxWidth()) {
-                Text("清空网络查询缓存")
-            }
-            Spacer(Modifier.height(6.dp))
-            OutlinedButton(onClick = onClearImages, modifier = Modifier.fillMaxWidth()) {
-                Text("删除本地照片（保留识别文字）")
-            }
-            Spacer(Modifier.height(6.dp))
-            OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) {
-                Text("清空查词历史")
-            }
+
         }
 
         // ---------- 朗读 ----------
@@ -248,8 +235,7 @@ fun SettingsScreen(
                 settings.ttsMode == "online"
             ) { onUpdate { it.copy(ttsMode = "online") } }
 
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = onTestSpeak) { Text("试听一句") }
+
         }
 
         // ---------- 外观 ----------
@@ -299,6 +285,20 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(6.dp))
             Hint("导入是「合并」不是覆盖：同一个生词保留复习进度较靠后的那条，重复的识别记录会跳过。")
+
+            Spacer(Modifier.height(14.dp))
+            SubTitle("清理")
+            OutlinedButton(onClick = onClearCache, modifier = Modifier.fillMaxWidth()) {
+                Text("清空网络查询缓存")
+            }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(onClick = onClearImages, modifier = Modifier.fillMaxWidth()) {
+                Text("删除本地照片（保留识别文字）")
+            }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) {
+                Text("清空查词历史")
+            }
         }
 
         // ---------- AI ----------

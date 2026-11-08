@@ -204,7 +204,6 @@ fun RootScreen(vm: MainViewModel) {
                         ttsReady = ttsState == TtsEngine.State.READY,
                         onUpdate = vm::updateSettings,
                         onClearCache = vm::clearNetworkCache,
-                        onTestSpeak = { vm.speak("This page is about offline dictionaries.") },
                         packs = packs,
                         activePackId = settings.activePackId,
                         packBusy = packBusy,
