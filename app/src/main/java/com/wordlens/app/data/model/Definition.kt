@@ -26,8 +26,10 @@ data class Definition(
     /** 点到的词就是词典原形时为 true（studying 查到 study 时为 false）*/
     val lemmaIsExact: Boolean = true,
     val phonetic: String? = null,
-    /** 中文释义，按词性分行，例如 "n. 知识；学问" */
+    /** 中文释义，按词性分行，例如 "n. 知识；学问"（当前点中的词形自己的释义） */
     val zhLines: List<String> = emptyList(),
+    /** 原形条目带来的补充释义，单独一组，UI 里分开显示 */
+    val baseZhLines: List<String> = emptyList(),
     val enMeanings: List<EnMeaning> = emptyList(),
     /** 离线没命中时，在线机器翻译给出的一句中文 */
     val zhMachine: String? = null,

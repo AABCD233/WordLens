@@ -21,6 +21,8 @@ import com.wordlens.app.data.tts.TtsEngine
  */
 class AppContainer(context: Context) {
 
+    val appContext: Context = context.applicationContext
+
     val settings = AppSettings(context)
     val database = AppDatabase(context)
     val dictStore = DictStore(context)

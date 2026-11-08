@@ -280,11 +280,34 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         _suggestions.value = emptyList()
     }
 
-    /** 直接查词（不依赖 OCR） */
+    /** 直接查词（不依赖 OCR），顺带记进历史 */
     fun searchWord(raw: String) {
         val q = raw.trim()
         if (q.isEmpty()) return
+        val key = q.lowercase()
+        val old = history().filter { it.lowercase() != key }
+        val next = (listOf(q) + old).take(15)
+        updateSettings { it.copy(searchHistory = next.joinToString(",")) }
         lookupWord(q, null)
+    }
+
+    /** 查词历史（最新在前） */
+    fun history(): List<String> =
+        settings.value.searchHistory.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+    fun clearHistory() {
+        updateSettings { it.copy(searchHistory = "") }
+        _messages.tryEmit("已清空查词历史")
+    }
+
+    /** 删掉已识别的照片文件，文字记录保留 */
+    fun clearImages() {
+        scope.launch {
+            val dir = java.io.File(app.appContext.filesDir, "documents")
+            val n = dir.listFiles()?.count { it.isFile } ?: 0
+            dir.listFiles()?.forEach { runCatching { it.delete() } }
+            _messages.tryEmit("已删除 $n 张本地照片（文字记录还在）")
+        }
     }
 
     fun dismissWord() {
@@ -300,7 +323,13 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         val s = settings.value
         val mode = if (s.ttsMode == "online") TtsEngine.Mode.ONLINE else TtsEngine.Mode.SYSTEM
         val ok = app.tts.speak(text, s.speechRate, mode)
-        if (!ok) _messages.tryEmit("朗读失败：系统语音不可用，也没连上网络")
+        if (!ok) {
+            _messages.tryEmit(
+                if (mode == TtsEngine.Mode.SYSTEM)
+                    "系统语音不可用，已尝试在线朗读；仍无声请到设置把朗读引擎切成「在线朗读」"
+                else "在线朗读没出声，检查一下网络"
+            )
+        }
     }
 
     fun requestAiExplain(kind: String = AiKind.EXPLAIN.id) {

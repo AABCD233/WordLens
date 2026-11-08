@@ -61,6 +61,8 @@ fun SettingsScreen(
     onInstallOfficial: () -> Unit,
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
+    onClearHistory: () -> Unit,
+    onClearImages: () -> Unit,
     onExportBackup: (android.net.Uri) -> Unit,
     onImportBackup: (android.net.Uri) -> Unit,
     onMessage: (String) -> Unit
@@ -152,12 +154,23 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(8.dp))
             }
+            val officialInstalled = packs.any { !it.builtIn && it.words >= 700_000 }
             OutlinedButton(
                 onClick = onInstallOfficial,
-                enabled = packBusy == null,
+                enabled = packBusy == null && !officialInstalled,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("下载官方全量包（76 万词 · 约 37 MB）") }
-            Hint("走 gh-proxy 加速镜像，失败会自动换源。装完自动切换，不用重装 App。")
+            ) {
+                Text(
+                    when {
+                        officialInstalled -> "官方全量包已下载"
+                        else -> "下载官方全量包（下载约 37 MB，占用约 85 MB）"
+                    }
+                )
+            }
+            Hint(
+                if (officialInstalled) "已装在手机上，占比以列表里显示的为准（解压后约 85 MB）。"
+                else "下载的是压缩包（约 37 MB），解压后占 84.6 MB；失败会自动换源。"
+            )
 
             Spacer(Modifier.height(10.dp))
             SubTitle("或者填自己的词典包地址")
@@ -183,8 +196,17 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(12.dp))
+            SubTitle("缓存清理")
             OutlinedButton(onClick = onClearCache, modifier = Modifier.fillMaxWidth()) {
                 Text("清空网络查询缓存")
+            }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(onClick = onClearImages, modifier = Modifier.fillMaxWidth()) {
+                Text("删除本地照片（保留识别文字）")
+            }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) {
+                Text("清空查词历史")
             }
         }
 

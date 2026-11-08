@@ -176,9 +176,16 @@ class LlmClient(private val settings: com.wordlens.app.data.settings.AppSettings
                 "你是英语老师。只讲这个英文词的用法：先列 4-6 个高频搭配（动词/介词/名词组合），" +
                     "每个给一句极短的中文说明；再给 1-2 组易混词辨析（和哪个词容易混、区别是什么）。格式紧凑，不要例句。"
         }
+        val taskHint = when (kind) {
+            AiKind.EXPLAIN -> "任务：解释这个单词的意思和用法。"
+            AiKind.EXAMPLES -> "任务：为这个单词造 3 个例句并翻译。"
+            AiKind.COLLOCATIONS -> "任务：给出这个单词的常见搭配和易混词辨析。"
+        }
         ask(system, buildString {
-            append("单词：").append(word)
-            if (!sentence.isNullOrBlank()) append("\n上下文：").append(sentence.take(240))
+            append(taskHint)
+            append("\n单词：").append(word)
+            if (!sentence.isNullOrBlank()) append("\n它所在的句子：").append(sentence.take(240))
+            append("\n请直接输出结果，不要解释你在做什么。")
         }, 700)
     }
 
@@ -193,7 +200,12 @@ class LlmClient(private val settings: com.wordlens.app.data.settings.AppSettings
                 "【重点词】挑 4-6 个对理解最关键的词，每行「单词 词性 中文 — 为什么重要(10 字内)」。\n" +
                 "【难句】挑 2-3 句结构复杂的，每句先给中文意思，再用一句话说清结构。\n" +
                 "【复习建议】一句话，说读完这段该重点记什么。"
-        ask(system, text.take(3000), 900)
+        ask(
+            system,
+            "任务：对下面这段英文做精读笔记（主旨 / 重点词 / 难句 / 复习建议）。\n" +
+                "正文开始：\n" + text.take(3000),
+            900
+        )
     }
 
     private fun ask(system: String, user: String, maxTokens: Int): Result<String> = runCatching {

@@ -244,6 +244,51 @@ private fun DefinitionBody(
     if (def.zhLines.isNotEmpty()) {
         SectionTitle("释义")
         def.zhLines.forEach { line -> ZhLine(line) }
+        // 原形条目带来的释义单独一组，避免和当前词形混在一起
+        if (def.baseZhLines.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            SectionTitle("原形 ${def.baseWord ?: def.lemma}")
+            def.baseZhLines.forEach { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                )
+            }
+        }
+
+        // 我的释义放在这儿，跟词典释义挨着
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle("我的释义")
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onEditNote) {
+                Text(if (def.userNote.isNullOrBlank()) "添加" else "修改", fontSize = 12.sp)
+            }
+        }
+        if (def.userNote.isNullOrBlank()) {
+            Text(
+                "词典解释不合适？可以自己写一条，只存在本机。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 19.sp
+            )
+        } else {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    def.userNote,
+                    style = MaterialTheme.typography.bodyMedium,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+                )
+            }
+        }
+
     } else if (def.zhMachine != null) {
         SectionTitle("机器翻译")
         Text(
@@ -366,95 +411,96 @@ private fun DefinitionBody(
         }
     }
 
-    // 我的释义：自己补的内容，优先于词典
-    Spacer(Modifier.height(12.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        SectionTitle("我的释义")
-        Spacer(Modifier.weight(1f))
-        TextButton(onClick = onEditNote) {
-            Text(if (def.userNote.isNullOrBlank()) "添加" else "修改", fontSize = 12.sp)
-        }
-    }
-    if (def.userNote.isNullOrBlank()) {
-        Text(
-            "词典解释不合适？可以自己写一条，只存在本机。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            lineHeight = 19.sp
-        )
-    } else {
-        Surface(
-            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
-            shape = RoundedCornerShape(10.dp)
-        ) {
-            Text(
-                def.userNote,
-                style = MaterialTheme.typography.bodyMedium,
-                lineHeight = 22.sp,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
-            )
-        }
-    }
-
-    // 上下文句子
-    word.sentence?.takeIf { it.isNotBlank() }?.let { sentence ->
-        Spacer(Modifier.height(12.dp))
-        SectionTitle("原句")
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            shape = RoundedCornerShape(10.dp)
-        ) {
-            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
-                Text(
-                    sentence,
-                    style = MaterialTheme.typography.bodySmall,
-                    lineHeight = 20.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = { onSpeak(sentence) }) { Text("读") }
-            }
-        }
-    }
-
-    // AI：三个维度
-    if (settings.aiReady) {
-        Spacer(Modifier.height(12.dp))
-        SectionTitle("AI")
+    // 词形变化：每个都能点进去查（应对「只认识变形、不认识原形」的场景）
+    if (def.inflections.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("词形（可点）")
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            AiKind.values().forEach { kind ->
-                val running = word.aiLoading && word.aiKind == kind.id
-                FilterChipCompat(
-                    label = if (running) "分析中…" else kind.label,
-                    selected = word.aiKind == kind.id && word.aiText != null,
-                    enabled = !word.aiLoading,
-                    onClick = { onAiExplain(kind.id) }
-                )
+            def.inflections.forEach { line ->
+                val form = formOf(line)
+                if (form != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            line.removeSuffix(form).trim(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        WordChip(form) { onLookupWord(form) }
+                    }
+                } else {
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
-        if (word.aiLoading) {
-            Spacer(Modifier.height(8.dp))
-            CircularProgressIndicator(Modifier.height(20.dp).width(20.dp))
-        }
-        word.aiText?.takeIf { it.isNotBlank() }?.let { ai ->
-            Spacer(Modifier.height(8.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    ai,
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    lineHeight = 21.sp
-                )
+    }
+
+    // 词形变化：每个都能点进去查（应对「只认识变形、不认识原形」的场景）
+    if (def.inflections.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("词形（可点）")
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            def.inflections.forEach { line ->
+                val form = formOf(line)
+                if (form != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            line.removeSuffix(form).trim(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        WordChip(form) { onLookupWord(form) }
+                    }
+                } else {
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
-        word.aiError?.let {
-            Spacer(Modifier.height(6.dp))
-            Text("AI 调用失败：$it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+    }
+
+    // 词形变化：每个都能点进去查（应对「只认识变形、不认识原形」的场景）
+    if (def.inflections.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("词形（可点）")
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            def.inflections.forEach { line ->
+                val form = formOf(line)
+                if (form != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            line.removeSuffix(form).trim(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        WordChip(form) { onLookupWord(form) }
+                    }
+                } else {
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 

@@ -179,6 +179,8 @@ fun RootScreen(vm: MainViewModel) {
                         onQueryChange = vm::onSearchQueryChange,
                         onSubmit = { q -> vm.searchWord(q) },
                         onPick = { w -> vm.searchWord(w) },
+                        history = vm.history(),
+                        onClearHistory = vm::clearHistory,
                         onMessage = vm::toast
                     )
 
@@ -210,6 +212,8 @@ fun RootScreen(vm: MainViewModel) {
                         onInstallOfficial = vm::installOfficialPack,
                         onActivatePack = vm::activatePack,
                         onDeletePack = vm::deletePack,
+                        onClearHistory = vm::clearHistory,
+                        onClearImages = vm::clearImages,
                         onExportBackup = { uri -> vm.exportBackup(uri) },
                         onImportBackup = { uri -> vm.importBackup(uri) },
                         onMessage = vm::toast

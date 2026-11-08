@@ -49,6 +49,8 @@ fun SearchScreen(
     onQueryChange: (String) -> Unit,
     onSubmit: (String) -> Unit,
     onPick: (String) -> Unit,
+    history: List<String> = emptyList(),
+    onClearHistory: () -> Unit = {},
     onMessage: (String) -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -147,6 +149,26 @@ fun SearchScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(16.dp))
+                if (history.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("最近查过", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            "清空",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.clickable { onClearHistory() }.padding(4.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        history.forEach { w -> SampleChip(w) { onPick(it) } }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
                 Text("试试这些", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
