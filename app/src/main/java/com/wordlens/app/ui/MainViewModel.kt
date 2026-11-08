@@ -83,7 +83,11 @@ data class DictationUi(
     val lastCorrect: Boolean = false,
     val correct: Int = 0,
     /** true = 看英文写中文 */
-    val reverse: Boolean = false
+    val reverse: Boolean = false,
+    /** 生词本里的全部候选词 */
+    val pool: List<SavedWord> = emptyList(),
+    /** 用户勾选的词（为空则随机抽） */
+    val selected: Set<String> = emptySet()
 )
 
 data class ReviewUi(
@@ -536,16 +540,51 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     fun dictationHistory(): List<String> =
         settings.value.dictationHistory.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
 
-    fun startDictation(count: Int, reverse: Boolean) {
+    /** 进入默写页时把生词本拉出来，供「自选」用 */
+    fun loadDictationPool() {
         scope.launch {
-            val pool = app.database.allSavedWords()
-            if (pool.isEmpty()) {
-                _messages.tryEmit("生词本是空的，先加几个词再来默写")
-                return@launch
-            }
-            val picked = pool.shuffled().take(count.coerceIn(1, pool.size))
-            _dictation.value = DictationUi(active = true, queue = picked, reverse = reverse)
+            val all = app.database.allSavedWords()
+            _dictation.value = _dictation.value.copy(pool = all)
         }
+    }
+
+    fun toggleDictationPick(word: String) {
+        val cur = _dictation.value.selected
+        val next = if (word in cur) cur - word else cur + word
+        _dictation.value = _dictation.value.copy(selected = next)
+    }
+
+    fun clearDictationPicks() {
+        _dictation.value = _dictation.value.copy(selected = emptySet())
+    }
+
+    fun selectAllDictation() {
+        val all = _dictation.value.pool.map { it.word }.toSet()
+        _dictation.value = _dictation.value.copy(selected = all)
+    }
+
+    fun startDictation(count: Int, reverse: Boolean) {
+        val st = _dictation.value
+        val source = if (st.selected.isNotEmpty()) {
+            st.pool.filter { it.word in st.selected }
+        } else {
+            st.pool
+        }
+        if (source.isEmpty()) {
+            _messages.tryEmit(
+                if (st.pool.isEmpty()) "生词本是空的，先加几个词再来默写"
+                else "还没勾选单词，勾几个或直接开始（随机抽）"
+            )
+            return
+        }
+        val picked = source.shuffled().take(count.coerceIn(1, source.size))
+        _dictation.value = DictationUi(
+            active = true,
+            queue = picked,
+            reverse = reverse,
+            pool = st.pool,
+            selected = st.selected
+        )
     }
 
     fun dictationInput(text: String) {
@@ -575,7 +614,8 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     }
 
     fun finishDictation() {
-        _dictation.value = DictationUi()
+        val st = _dictation.value
+        _dictation.value = DictationUi(pool = st.pool, selected = st.selected)
     }
 
     private fun recordDictation(correct: Int, total: Int) {

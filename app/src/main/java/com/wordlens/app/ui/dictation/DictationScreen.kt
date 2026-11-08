@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,7 +53,11 @@ fun DictationScreen(
     onSubmit: () -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
-    onSpeak: (String) -> Unit
+    onSpeak: (String) -> Unit,
+    onTogglePick: (String) -> Unit,
+    onClearPicks: () -> Unit,
+    onSelectAll: () -> Unit,
+    onLoadPool: () -> Unit
 ) {
     Column(
         Modifier
@@ -70,13 +76,20 @@ fun DictationScreen(
         when {
             state.finished -> ResultCard(state, history, onStart, onFinish)
             state.active -> QuestionCard(state, onInput, onSubmit, onNext, onSpeak)
-            else -> StartCard(history, onStart)
+            else -> StartCard(state, history, onStart, onTogglePick, onClearPicks, onSelectAll)
         }
     }
 }
 
 @Composable
-private fun StartCard(history: List<String>, onStart: (Int, Boolean) -> Unit) {
+private fun StartCard(
+    state: DictationUi,
+    history: List<String>,
+    onStart: (Int, Boolean) -> Unit,
+    onTogglePick: (String) -> Unit,
+    onClearPicks: () -> Unit,
+    onSelectAll: () -> Unit
+) {
     var count by remember { mutableStateOf(10) }
     var reverse by remember { mutableStateOf(false) }   // false = 中文提示写英文
 
@@ -95,9 +108,93 @@ private fun StartCard(history: List<String>, onStart: (Int, Boolean) -> Unit) {
             ChoiceChip("看中文·写英文", !reverse) { reverse = false }
             ChoiceChip("看英文·写中文", reverse) { reverse = true }
         }
+        Spacer(Modifier.height(14.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "自选单词（可选）",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.weight(1f))
+            if (state.selected.isNotEmpty()) {
+                Text(
+                    "已选 ${state.selected.size}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(
+                "全选",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier
+                    .clickable { onSelectAll() }
+                    .padding(start = 10.dp, top = 6.dp, bottom = 6.dp, end = 6.dp)
+            )
+            Text(
+                "清空",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier
+                    .clickable { onClearPicks() }
+                    .padding(start = 6.dp, top = 6.dp, bottom = 6.dp)
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        if (state.pool.isEmpty()) {
+            Text(
+                "生词本还是空的，加几个词就能在这里挑",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column {
+                state.pool.take(60).forEach { w ->
+                    val on = w.word in state.selected
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onTogglePick(w.word) }
+                            .padding(vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier
+                                .size(20.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (on) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceContainerHighest
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (on) Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(w.word, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                w.translation.lineSequence().firstOrNull() ?: "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+                if (state.pool.size > 60) {
+                    Text(
+                        "只显示前 60 个；不勾选就是从全部 ${state.pool.size} 个里随机抽",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(16.dp))
         Button(onClick = { onStart(count, reverse) }, modifier = Modifier.fillMaxWidth()) {
-            Text("开始默写")
+            Text(if (state.selected.isEmpty()) "开始默写（随机抽）" else "开始默写（已选 ${state.selected.size}）")
         }
         Text(
             "题目从「生词本」里随机抽取；生词本是空的就先加几个词。",

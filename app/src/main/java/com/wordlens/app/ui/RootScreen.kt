@@ -211,7 +211,11 @@ fun RootScreen(
                         onSubmit = vm::submitDictation,
                         onNext = vm::nextDictation,
                         onFinish = vm::finishDictation,
-                        onSpeak = vm::speak
+                        onSpeak = vm::speak,
+                        onTogglePick = vm::toggleDictationPick,
+                        onClearPicks = vm::clearDictationPicks,
+                        onSelectAll = vm::selectAllDictation,
+                        onLoadPool = vm::loadDictationPool
                     )
 
                     Tab.Settings -> SettingsScreen(
@@ -272,6 +276,10 @@ fun RootScreen(
 
     // 悬浮球点进来：直接弹输入框查词
     var showQuickInput by remember { mutableStateOf(false) }
+    LaunchedEffect(tab) {
+        if (tab == Tab.Dictation) vm.loadDictationPool()
+    }
+
     LaunchedEffect(quickSearch) {
         if (quickSearch) {
             showQuickInput = true
