@@ -176,7 +176,8 @@ class FloatingService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -207,6 +208,23 @@ class FloatingService : Service() {
             }
         }
 
+        fun setTyping(on: Boolean, v: View? = null) {
+            p.flags = if (on) {
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            } else {
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            }
+            frame?.let { f -> runCatching { wm.updateViewLayout(f, p) } }
+            if (on) {
+                v?.requestFocus()
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                v?.let { runCatching { imm.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT) } }
+            } else {
+                v?.let { hideKeyboard(it) }
+            }
+        }
+
         fun lookup() {
             val q = input.text.toString().trim()
             if (q.isEmpty()) return
@@ -215,6 +233,7 @@ class FloatingService : Service() {
             body.text = ""
             resultBox.visibility = View.VISIBLE
             hideKeyboard(input)
+            setTyping(false, input)
             scope.launch {
                 val container = (application as WordLensApp).container
                 val def = withContext(Dispatchers.IO) {
@@ -237,6 +256,13 @@ class FloatingService : Service() {
             }
         }
 
+        input.setOnTouchListener { v, e ->
+            if (e.action == MotionEvent.ACTION_UP) {
+                setTyping(true, v)
+            }
+            false
+        }
+
         go.setOnClickListener { lookup() }
         input.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -250,14 +276,16 @@ class FloatingService : Service() {
             android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
             android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
         ))
+        // 左上角往外拖应该变大：START 侧宽度取反、TOP 侧高度取反
         listOf(
-            Gravity.TOP or Gravity.START to (1 to 1),
-            Gravity.TOP or Gravity.END to (-1 to 1),
-            Gravity.BOTTOM or Gravity.START to (1 to -1),
-            Gravity.BOTTOM or Gravity.END to (-1 to -1)
+            Gravity.TOP or Gravity.START to (-1 to -1),
+            Gravity.TOP or Gravity.END to (1 to -1),
+            Gravity.BOTTOM or Gravity.START to (-1 to 1),
+            Gravity.BOTTOM or Gravity.END to (1 to 1)
         ).forEach { (g, dir) ->
             val handle = View(this).apply {
-                setBackgroundColor(Color.parseColor("#330F6B63"))
+                // 透明，只保留触摸区（原来那四个方块会被当成阴影）
+                setBackgroundColor(Color.TRANSPARENT)
             }
             val lp = android.widget.FrameLayout.LayoutParams(dp(18), dp(18), g)
             container.addView(handle, lp)

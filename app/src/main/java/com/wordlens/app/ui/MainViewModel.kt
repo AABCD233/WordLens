@@ -217,10 +217,18 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     fun openAdjacent(delta: Int) {
         scope.launch {
             val docs = app.database.allDocuments()
+            if (docs.isEmpty()) return@launch
             val cur = _reader.value.docId
-            val idx = docs.indexOfFirst { it.id == cur }
-            if (idx < 0) return@launch
-            docs.getOrNull(idx + delta)?.let { openDocument(it.id) }
+            var idx = docs.indexOfFirst { it.id == cur }
+            // docId 对不上时（刚识别完还没落库之类），退化为从最新一张开始
+            if (idx < 0) idx = 0
+            val target = docs.getOrNull(idx + delta)
+            if (target == null) {
+                _messages.tryEmit(if (delta < 0) "已经是第一张了" else "已经是最后一张了")
+                return@launch
+            }
+            _messages.tryEmit("第 ${idx + delta + 1} / ${docs.size} 张")
+            openDocument(target.id)
         }
     }
 

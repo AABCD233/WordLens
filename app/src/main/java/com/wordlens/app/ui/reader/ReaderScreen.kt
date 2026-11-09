@@ -169,8 +169,13 @@ fun ReaderScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    SideNavButton("‹") { onPrevDoc() }
-                    SideNavButton("›") { onNextDoc() }
+                    // 触摸区做大一点，靠边也能点到
+                    Box(Modifier.size(64.dp).clickable { onPrevDoc() }, contentAlignment = Alignment.Center) {
+                        SideNavButton("‹") { onPrevDoc() }
+                    }
+                    Box(Modifier.size(64.dp).clickable { onNextDoc() }, contentAlignment = Alignment.Center) {
+                        SideNavButton("›") { onNextDoc() }
+                    }
                 }
             }
         }
@@ -480,7 +485,7 @@ private fun SideNavButton(symbol: String, onClick: () -> Unit) {
         color = Color.Black.copy(alpha = 0.28f),
         shape = CircleShape,
         modifier = Modifier
-            .size(40.dp)
+            .size(46.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick)
     ) {
