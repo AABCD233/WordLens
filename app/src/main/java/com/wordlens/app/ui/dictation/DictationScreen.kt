@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wordlens.app.data.model.SavedWord
+import com.wordlens.app.data.db.SavedWord
 import com.wordlens.app.ui.DictationStage
 import com.wordlens.app.ui.DictationUi
 import com.wordlens.app.ui.theme.PageTitleStyle
