@@ -213,6 +213,17 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         }
     }
 
+    /** 阅读页左右翻：在识别记录列表里切上一张 / 下一张 */
+    fun openAdjacent(delta: Int) {
+        scope.launch {
+            val docs = app.database.allDocuments()
+            val cur = _reader.value.docId
+            val idx = docs.indexOfFirst { it.id == cur }
+            if (idx < 0) return@launch
+            docs.getOrNull(idx + delta)?.let { openDocument(it.id) }
+        }
+    }
+
     fun openDocument(id: Long) {
         _reader.value = ReaderUi(loading = true, docId = id)
         scope.launch {

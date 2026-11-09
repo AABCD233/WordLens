@@ -152,6 +152,8 @@ fun RootScreen(
             onTranslateAll = { vm.translateFullText() },
             onAnalyze = { vm.analyzeArticle(force = reader.aiArticle != null) },
             onManualLookup = { w -> vm.lookupWord(w, null) },
+            onPrevDoc = { vm.openAdjacent(-1) },
+            onNextDoc = { vm.openAdjacent(+1) },
             onMessage = vm::toast
         )
 

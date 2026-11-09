@@ -234,9 +234,14 @@ fun CaptureScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            OutlinedButton(onClick = {
-                picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }) { Text("相册") }
+            Row(
+                Modifier.weight(1f),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                OutlinedButton(onClick = {
+                    picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) { Text("相册") }
+            }
 
             ShutterButton(
                 onClick = {
@@ -267,6 +272,10 @@ fun CaptureScreen(
                 },
             )
 
+            Row(
+                Modifier.weight(1f),
+                horizontalArrangement = Arrangement.End
+            ) {
             OutlinedButton(
                 onClick = {
                     if (batchMode && pending.isNotEmpty()) {
@@ -304,6 +313,22 @@ fun CaptureScreen(
                     CameraSelector.LENS_FACING_BACK
                 }
             }) { Text("翻转") }
+            }
+        }
+
+        if (batchMode) {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    if (pending.isEmpty()) "连拍已开：连拍多页，拍完点「识别」一起处理"
+                    else "已拍 ${pending.size} 张，继续拍或点「识别 ${pending.size} 张」",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
         }
 
         if (recent.isNotEmpty()) {

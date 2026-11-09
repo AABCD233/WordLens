@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -86,6 +88,8 @@ fun ReaderScreen(
     onTranslateAll: () -> Unit,
     onAnalyze: () -> Unit,
     onManualLookup: (String) -> Unit,
+    onPrevDoc: () -> Unit,
+    onNextDoc: () -> Unit,
     onMessage: (String) -> Unit
 ) {
     var manualOpen by remember { mutableStateOf(false) }
@@ -457,6 +461,23 @@ private fun WordToken(
  * 缩放/平移都画在同一层 graphicsLayer 上（transformOrigin 固定在左上角），
  * 所以点击时只要把屏幕坐标反算回内容坐标，坐标就和词框完全对得上。
  */
+/** 阅读页两侧的半透明翻页按钮 */
+@Composable
+private fun SideNavButton(symbol: String, onClick: () -> Unit) {
+    Surface(
+        color = Color.Black.copy(alpha = 0.28f),
+        shape = CircleShape,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(symbol, color = Color.White, fontSize = 24.sp)
+        }
+    }
+}
+
 @Composable
 private fun ImageWordView(
     state: ReaderUi,
