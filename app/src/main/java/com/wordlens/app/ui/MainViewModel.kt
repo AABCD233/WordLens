@@ -226,6 +226,9 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun endBatch() {
         batchActive = false
+        if (batchIds.isEmpty()) return
+        // 连拍是"第一张拍的 = 第一页"，所以识别完回到第一张，而不是停在最后一张
+        openDocument(batchIds.first())
         if (batchIds.size > 1) {
             _messages.tryEmit("本次连拍 ${batchIds.size} 张，可用左右箭头翻页")
         }
