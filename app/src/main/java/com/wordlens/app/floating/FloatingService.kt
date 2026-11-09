@@ -11,122 +11,252 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
-import android.provider.Settings
+import android.text.InputType
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.wordlens.app.MainActivity
+import com.wordlens.app.WordLensApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * 应用外的悬浮球：任何界面都能点一下，回到词镜直接查词。
+ * 悬浮查词：一个小搜索框浮在任意应用上方，查完直接在同一窗口里显示释义卡片，
+ * 不需要切回词镜。
  *
- * 用系统悬浮窗（TYPE_APPLICATION_OVERLAY）+ 前台服务保活。
- * 拖动可以移动位置，点击（没拖动过）就拉起 App。
+ * 窗口默认可聚焦（否则没法打字），拖动靠顶部标题条，避免和输入框抢触摸。
  */
 class FloatingService : Service() {
 
     private lateinit var wm: WindowManager
-    private var bubble: View? = null
-    private lateinit var params: WindowManager.LayoutParams
+    private var root: LinearLayout? = null
+    private var params: WindowManager.LayoutParams? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        if (!Settings.canDrawOverlays(this)) {
+        if (!android.provider.Settings.canDrawOverlays(this)) {
             stopSelf()
             return
         }
         startForeground(NOTIFICATION_ID, buildNotification())
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        showBubble()
+        showPanel()
     }
 
-    private fun showBubble() {
-        val size = (52 * resources.displayMetrics.density).toInt()
-        val view = TextView(this).apply {
-            text = "词"
-            setTextColor(Color.WHITE)
-            textSize = 20f
-            gravity = Gravity.CENTER
+    // ---------------- 悬浮面板 ----------------
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    private fun showPanel() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#0F6B63"))
-                setStroke((2 * resources.displayMetrics.density).toInt(), Color.parseColor("#B8F2E8"))
+                cornerRadius = dp(18).toFloat()
+                setColor(Color.parseColor("#F7FBF9"))
+                setStroke(dp(1), Color.parseColor("#0F6B63"))
             }
+            elevation = dp(8).toFloat()
+            setPadding(dp(10), dp(8), dp(10), dp(10))
         }
 
-        params = WindowManager.LayoutParams(
-            size, size,
+        // 顶部：拖动条 + 关闭
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val title = TextView(this).apply {
+            text = "词镜 · 悬浮查词"
+            setTextColor(Color.parseColor("#0F6B63"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        }
+        val close = TextView(this).apply {
+            text = "✕"
+            setTextColor(Color.parseColor("#667570"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setPadding(dp(10), dp(2), dp(2), dp(2))
+            setOnClickListener { stopSelf() }
+        }
+        header.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        header.addView(close)
+        panel.addView(header)
+
+        // 输入行
+        val inputRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(4), 0, 0)
+        }
+        val input = EditText(this).apply {
+            hint = "输入英文单词"
+            setHintTextColor(Color.parseColor("#8A9691"))
+            setTextColor(Color.parseColor("#17201E"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            imeOptions = EditorInfo.IME_ACTION_SEARCH
+            setSingleLine(true)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(Color.parseColor("#EDF3F0"))
+            }
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+        }
+        val go = TextView(this).apply {
+            text = "查"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(Color.parseColor("#0F6B63"))
+            }
+        }
+        inputRow.addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val gap = View(this); gap.layoutParams = LinearLayout.LayoutParams(dp(6), 1)
+        inputRow.addView(gap)
+        inputRow.addView(go)
+        panel.addView(inputRow)
+
+        // 结果区
+        val resultBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, dp(8), 0, 0)
+        }
+        val head = TextView(this).apply {
+            setTextColor(Color.parseColor("#17201E"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        val sub = TextView(this).apply {
+            setTextColor(Color.parseColor("#667570"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        }
+        val body = TextView(this).apply {
+            setTextColor(Color.parseColor("#17201E"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setPadding(0, dp(4), 0, 0)
+        }
+        val scroll = ScrollView(this).apply {
+            addView(body)
+            isVerticalScrollBarEnabled = true
+        }
+        resultBox.addView(head)
+        resultBox.addView(sub)
+        resultBox.addView(scroll, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(220)
+        ))
+        panel.addView(resultBox)
+
+        // 尺寸与位置
+        val width = (resources.displayMetrics.widthPixels * 0.84f).toInt()
+        val p = WindowManager.LayoutParams(
+            width,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = resources.displayMetrics.widthPixels - size - 24
-            y = resources.displayMetrics.heightPixels / 3
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            y = (resources.displayMetrics.heightPixels * 0.18f).toInt()
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
+        params = p
 
-        var downX = 0f
+        // 顶部条可拖动
         var downY = 0f
-        var startX = 0
         var startY = 0
-        var moved = false
-
-        view.setOnTouchListener { _, e ->
+        header.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    downX = e.rawX; downY = e.rawY
-                    startX = params.x; startY = params.y
-                    moved = false
+                    downY = e.rawY
+                    startY = p.y
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val dx = e.rawX - downX
-                    val dy = e.rawY - downY
-                    if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
-                    if (moved) {
-                        params.x = (startX + dx).toInt()
-                        params.y = (startY + dy).toInt()
-                        runCatching { wm.updateViewLayout(view, params) }
-                    }
+                    p.y = (startY + (e.rawY - downY)).toInt()
+                    runCatching { wm.updateViewLayout(panel, p) }
                     true
                 }
-                MotionEvent.ACTION_UP -> {
-                    if (!moved) openQuickSearch()
-                    true
-                }
-                else -> false
+                else -> true
             }
         }
 
-        runCatching { wm.addView(view, params) }
-        bubble = view
+        fun lookup() {
+            val q = input.text.toString().trim()
+            if (q.isEmpty()) return
+            head.text = q
+            sub.text = "查询中…"
+            body.text = ""
+            resultBox.visibility = View.VISIBLE
+            hideKeyboard(input)
+            scope.launch {
+                val container = (application as WordLensApp).container
+                val def = withContext(Dispatchers.IO) {
+                    runCatching { container.dictionary.lookup(q) }.getOrNull()
+                }
+                if (def == null) {
+                    sub.text = "没查到"
+                    body.text = "离线词典没收录，也可能联网失败了。"
+                    return@launch
+                }
+                head.text = def.lemma.ifBlank { q }
+                val ph = def.phonetic.orEmpty()
+                sub.text = if (ph.isBlank()) "" else "/$ph/"
+                val zh = (def.zhLines + def.baseZhLines).joinToString("\n")
+                val en = def.enMeanings.joinToString("\n") { m ->
+                    m.partOfSpeech + " " + m.definitions.take(2).joinToString("；") { it.text }
+                }
+                body.text = listOf(zh, en).filter { it.isNotBlank() }.joinToString("\n\n")
+                    .ifBlank { "（没有释义）" }
+            }
+        }
+
+        go.setOnClickListener { lookup() }
+        input.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                lookup(); true
+            } else false
+        }
+
+        runCatching { wm.addView(panel, p) }
+        root = panel
     }
 
-    private fun openQuickSearch() {
-        val i = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            putExtra(EXTRA_QUICK_SEARCH, true)
-        }
-        startActivity(i)
+    private fun hideKeyboard(v: View) {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        runCatching { imm.hideSoftInputFromWindow(v.windowToken, 0) }
     }
+
+    // ---------------- 通知 ----------------
 
     private fun buildNotification(): Notification {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(
-                CHANNEL_ID, "悬浮查词", NotificationManager.IMPORTANCE_MIN
-            ).apply {
-                description = "保持悬浮球可用"
-                setShowBadge(false)
-            }
-            nm.createNotificationChannel(ch)
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "悬浮查词", NotificationManager.IMPORTANCE_MIN).apply {
+                    description = "保持悬浮搜索框可用"
+                    setShowBadge(false)
+                }
+            )
         }
         val pi = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
@@ -135,7 +265,7 @@ class FloatingService : Service() {
         val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             Notification.Builder(this, CHANNEL_ID) else @Suppress("DEPRECATION") Notification.Builder(this)
         return b.setContentTitle("词镜悬浮查词已开启")
-            .setContentText("点桌面上的「词」回到词镜查词")
+            .setContentText("屏幕上会显示一个小搜索框")
             .setSmallIcon(android.R.drawable.ic_menu_search)
             .setContentIntent(pi)
             .setOngoing(true)
@@ -143,8 +273,9 @@ class FloatingService : Service() {
     }
 
     override fun onDestroy() {
-        bubble?.let { runCatching { wm.removeView(it) } }
-        bubble = null
+        root?.let { runCatching { wm.removeView(it) } }
+        root = null
+        scope.cancel()
         super.onDestroy()
     }
 
