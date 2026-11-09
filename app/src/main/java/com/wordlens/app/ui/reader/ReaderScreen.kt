@@ -90,6 +90,7 @@ fun ReaderScreen(
     onManualLookup: (String) -> Unit,
     onPrevDoc: () -> Unit,
     onNextDoc: () -> Unit,
+    showPager: Boolean = false,
     onMessage: (String) -> Unit
 ) {
     var manualOpen by remember { mutableStateOf(false) }
@@ -163,7 +164,7 @@ fun ReaderScreen(
             }
 
             // 翻页按钮画在内容之后，才不会被图片/文字盖住
-            if (!state.loading && state.error == null) {
+            if (showPager && !state.loading && state.error == null) {
                 Row(
                     Modifier.fillMaxSize().padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,

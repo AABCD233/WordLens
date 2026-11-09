@@ -154,6 +154,7 @@ fun RootScreen(
             onManualLookup = { w -> vm.lookupWord(w, null) },
             onPrevDoc = { vm.openAdjacent(-1) },
             onNextDoc = { vm.openAdjacent(+1) },
+            showPager = vm.inBatch(),
             onMessage = vm::toast
         )
 
@@ -177,8 +178,7 @@ fun RootScreen(
                         },
                         onDelete = { doc -> deleteId = doc.id },
                         onMessage = vm::toast,
-                        onBatchStart = vm::beginBatch,
-                        onBatchEnd = vm::endBatch
+                        onBatch = vm::analyzeBatch
                     )
 
                     Tab.Search -> SearchScreen(

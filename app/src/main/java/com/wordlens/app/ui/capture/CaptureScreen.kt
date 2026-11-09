@@ -88,8 +88,7 @@ fun CaptureScreen(
     onRename: (DocumentRow) -> Unit,
     onDelete: (DocumentRow) -> Unit,
     onMessage: (String) -> Unit,
-    onBatchStart: () -> Unit = {},
-    onBatchEnd: () -> Unit = {}
+    onBatch: (List<Pair<Uri, java.io.File?>>) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -285,15 +284,8 @@ fun CaptureScreen(
                         val items = pending.toList()
                         pending.clear()
                         batchMode = false
-                        scope.launch {
-                            onBatchStart()
-                            items.forEachIndexed { i, (u, f) ->
-                                onCaptured(u, f)
-                                if (i < items.lastIndex) kotlinx.coroutines.delay(1500)
-                            }
-                            onBatchEnd()
-                            onMessage("已识别 ${items.size} 张")
-                        }
+                        // 交给 VM 串行识别，全部落库后自动停在第一张
+                        onBatch(items)
                     } else {
                         batchMode = !batchMode
                         if (!batchMode) pending.clear()

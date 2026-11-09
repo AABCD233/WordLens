@@ -177,64 +177,78 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     /** 拍照（自己落盘的 File）或相册（content://），统一走这里 */
     fun analyzeImage(uri: Uri, ownedFile: File? = null) {
         _reader.value = ReaderUi(loading = true)
-        scope.launch {
-            try {
-                val result = app.ocr.recognize(uri)
-                if (result.wordCount == 0) {
-                    _reader.value = ReaderUi(
-                        loading = false,
-                        error = "没有识别到英文文字。试试靠近一点、光线亮一点，或者换一张更清晰的图。"
-                    )
-                    return@launch
-                }
-                val title = result.lines.firstOrNull { it.text.isNotBlank() }?.text
-                    ?.take(40)?.trim()
-                    ?: "识别于 " + SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date())
+        scope.launch { processImage(uri, ownedFile) }
+    }
 
-                val doc = DocumentRow(
-                    title = title,
-                    imagePath = ownedFile?.absolutePath,
-                    fullText = result.fullText,
-                    wordsJson = OcrCodec.encode(result),
-                    imageWidth = result.imageWidth,
-                    imageHeight = result.imageHeight,
-                    wordCount = result.wordCount,
-                    createdAt = System.currentTimeMillis()
-                )
-                val id = app.database.insertDocument(doc)
-                if (batchActive) batchIds.add(id)
+    /**
+     * 连拍：一张张串行识别，全部落库后再回到第一张。
+     * 串行是关键——并发调用 OCR 会互相覆盖，后面的照片就不会入库。
+     */
+    fun analyzeBatch(items: List<Pair<Uri, java.io.File?>>) {
+        if (items.isEmpty()) return
+        _reader.value = ReaderUi(loading = true)
+        scope.launch {
+            batchIds.clear()
+            batchActive = true
+            items.forEach { (uri, file) -> processImage(uri, file) }
+            batchActive = false
+            batchIds.firstOrNull()?.let { openDocument(it) }
+            _messages.tryEmit(
+                if (batchIds.size > 1) "已识别 ${batchIds.size} 张，可用左右箭头翻页"
+                else "已识别 ${batchIds.size} 张"
+            )
+        }
+    }
+
+    /** 识别一张并落库，返回文档 id；失败返回 null */
+    private suspend fun processImage(uri: Uri, ownedFile: java.io.File?): Long? {
+        return try {
+            val result = app.ocr.recognize(uri)
+            if (result.wordCount == 0) {
                 _reader.value = ReaderUi(
                     loading = false,
-                    docId = id,
-                    title = title,
-                    text = result.fullText,
-                    ocr = result,
-                    bitmap = ownedFile?.let { ImageFiles.loadSampled(it, 1600) }
+                    error = "没有识别到英文文字。试试靠近一点、光线亮一点，或者换一张更清晰的图。"
                 )
-                refreshLibrary()
-            } catch (t: Throwable) {
-                _reader.value = ReaderUi(loading = false, error = "识别失败：${t.message ?: t.javaClass.simpleName}")
+                return null
             }
+            val title = result.lines.firstOrNull { it.text.isNotBlank() }?.text
+                ?.take(40)?.trim()
+                ?: "识别于 " + SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date())
+
+            val doc = DocumentRow(
+                title = title,
+                imagePath = ownedFile?.absolutePath,
+                fullText = result.fullText,
+                wordsJson = OcrCodec.encode(result),
+                imageWidth = result.imageWidth,
+                imageHeight = result.imageHeight,
+                wordCount = result.wordCount,
+                createdAt = System.currentTimeMillis()
+            )
+            val id = app.database.insertDocument(doc)
+            if (batchActive) batchIds.add(id)
+            _reader.value = ReaderUi(
+                loading = false,
+                docId = id,
+                title = title,
+                text = result.fullText,
+                ocr = result,
+                bitmap = ownedFile?.let { ImageFiles.loadSampled(it, 1600) }
+            )
+            refreshLibrary()
+            id
+        } catch (t: Throwable) {
+            _reader.value = ReaderUi(
+                loading = false,
+                error = "识别失败：${t.message ?: t.javaClass.simpleName}"
+            )
+            null
         }
     }
 
-    /** 开始/结束一次连拍，翻页范围只限于这一批 */
-    fun beginBatch() {
-        batchIds.clear()
-        batchActive = true
-    }
+    /** 当前阅读页是否处于「连拍多张」状态，用来决定要不要显示左右箭头 */
+    fun inBatch(): Boolean = batchIds.size > 1
 
-    fun endBatch() {
-        batchActive = false
-        if (batchIds.isEmpty()) return
-        // 连拍是"第一张拍的 = 第一页"，所以识别完回到第一张，而不是停在最后一张
-        openDocument(batchIds.first())
-        if (batchIds.size > 1) {
-            _messages.tryEmit("本次连拍 ${batchIds.size} 张，可用左右箭头翻页")
-        }
-    }
-
-    /** 阅读页左右翻：在识别记录列表里切上一张 / 下一张 */
     fun openAdjacent(delta: Int) {
         // 连拍过就只在那一批里翻，不掺历史记录
         if (batchIds.size > 1) {
