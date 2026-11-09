@@ -247,6 +247,20 @@ fun SettingsScreen(
         }
 
         // ---------- 外观 ----------
+        SectionCard(title = "悬浮查词", subtitle = "在任何应用上方查词", defaultExpanded = false) {
+            ToggleRow(
+                "开启悬浮搜索框",
+                "在任何界面上显示一个可拖动的小搜索框，查到的释义就地显示，不用切回词镜",
+                settings.floatingButton
+            ) { checked ->
+                if (!onToggleFloating(checked) && checked) {
+                    onMessage("请先允许「显示在其他应用的上层」，再回来打开这个开关")
+                    onRequestOverlayPermission()
+                }
+            }
+            Hint("首次使用需要系统权限「显示在其他应用上层」。面板顶栏可拖动，右下角可缩放，点 ✕ 会缩成小球。")
+        }
+
         SectionCard(title = "外观", subtitle = "主题色 · 沉浸式布局", defaultExpanded = false) {
             ToggleRow(
                 "跟随系统主题色",
@@ -363,17 +377,6 @@ fun SettingsScreen(
             OutlinedButton(onClick = onCheckUpdate, modifier = Modifier.fillMaxWidth()) {
                 Text("检查更新")
             }
-            ToggleRow(
-                "悬浮球查词",
-                "开启后在任意应用上方显示一个「词」按钮，点一下回来查词（需要「显示在其他应用上层」权限）",
-                settings.floatingButton
-            ) { checked ->
-                if (!onToggleFloating(checked) && checked) {
-                    onMessage("请先允许「显示在其他应用的上层」，再回来打开开关")
-                    onRequestOverlayPermission()
-                }
-            }
-
             Spacer(Modifier.height(10.dp))
             Text(
                 "仓库地址",

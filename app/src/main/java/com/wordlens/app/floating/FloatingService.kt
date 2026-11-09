@@ -62,6 +62,10 @@ class FloatingService : Service() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+    private var frame: android.widget.FrameLayout? = null
+    private var bubble: TextView? = null
+    private var collapsed = false
+
     private fun showPanel() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -89,7 +93,7 @@ class FloatingService : Service() {
             setTextColor(Color.parseColor("#667570"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setPadding(dp(10), dp(2), dp(2), dp(2))
-            setOnClickListener { stopSelf() }
+            setOnClickListener { collapse() }
         }
         header.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         header.addView(close)
@@ -165,7 +169,7 @@ class FloatingService : Service() {
         panel.addView(resultBox)
 
         // 尺寸与位置
-        val width = (resources.displayMetrics.widthPixels * 0.84f).toInt()
+        val width = minOf(dp(300), (resources.displayMetrics.widthPixels * 0.86f).toInt())
         val p = WindowManager.LayoutParams(
             width,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -182,18 +186,21 @@ class FloatingService : Service() {
         params = p
 
         // 顶部条可拖动
+        var downX = 0f
         var downY = 0f
+        var startX = 0
         var startY = 0
         header.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    downY = e.rawY
-                    startY = p.y
+                    downX = e.rawX; downY = e.rawY
+                    startX = p.x; startY = p.y
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    p.x = (startX + (e.rawX - downX)).toInt()
                     p.y = (startY + (e.rawY - downY)).toInt()
-                    runCatching { wm.updateViewLayout(panel, p) }
+                    runCatching { wm.updateViewLayout(frame ?: panel, p) }
                     true
                 }
                 else -> true
@@ -237,8 +244,125 @@ class FloatingService : Service() {
             } else false
         }
 
-        runCatching { wm.addView(panel, p) }
+        // 外层容器：面板 + 四角缩放手柄
+        val container = android.widget.FrameLayout(this)
+        container.addView(panel, android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+        ))
+        listOf(
+            Gravity.TOP or Gravity.START to (1 to 1),
+            Gravity.TOP or Gravity.END to (-1 to 1),
+            Gravity.BOTTOM or Gravity.START to (1 to -1),
+            Gravity.BOTTOM or Gravity.END to (-1 to -1)
+        ).forEach { (g, dir) ->
+            val handle = View(this).apply {
+                setBackgroundColor(Color.parseColor("#330F6B63"))
+            }
+            val lp = android.widget.FrameLayout.LayoutParams(dp(18), dp(18), g)
+            container.addView(handle, lp)
+            var hx = 0f
+            var hy = 0f
+            var sw = 0
+            var sh = 0
+            handle.setOnTouchListener { _, e ->
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        hx = e.rawX; hy = e.rawY
+                        sw = p.width
+                        sh = if (p.height > 0) p.height
+                        else (container.height.takeIf { it > 0 } ?: dp(260))
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = ((e.rawX - hx) * dir.first).toInt()
+                        val dy = ((e.rawY - hy) * dir.second).toInt()
+                        p.width = (sw + dx).coerceAtLeast(dp(200))
+                        p.height = (sh + dy).coerceAtLeast(dp(120))
+                        runCatching { wm.updateViewLayout(container, p) }
+                        true
+                    }
+                    else -> true
+                }
+            }
+        }
+
+        frame = container
+        runCatching { wm.addView(container, p) }
         root = panel
+    }
+
+    /** 收起成小球（不退出服务） */
+    private fun collapse() {
+        if (collapsed) return
+        collapsed = true
+        frame?.let { runCatching { wm.removeView(it) } }
+        if (bubble != null) return
+        val size = dp(46)
+        val dot = TextView(this).apply {
+            text = "词"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#0F6B63"))
+                setStroke(dp(2), Color.parseColor("#B8F2E8"))
+            }
+        }
+        val bp = WindowManager.LayoutParams(
+            size, size,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            android.graphics.PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = resources.displayMetrics.widthPixels - size - dp(16)
+            y = (resources.displayMetrics.heightPixels * 0.3f).toInt()
+        }
+        var dx0 = 0f
+        var dy0 = 0f
+        var sx0 = 0
+        var sy0 = 0
+        var moved = false
+        dot.setOnTouchListener { _, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    dx0 = e.rawX; dy0 = e.rawY; sx0 = bp.x; sy0 = bp.y
+                    moved = false; true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = e.rawX - dx0
+                    val dy = e.rawY - dy0
+                    if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
+                    if (moved) {
+                        bp.x = (sx0 + dx).toInt()
+                        bp.y = (sy0 + dy).toInt()
+                        runCatching { wm.updateViewLayout(dot, bp) }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) expand()
+                    true
+                }
+                else -> false
+            }
+        }
+        runCatching { wm.addView(dot, bp) }
+        bubble = dot
+    }
+
+    /** 从小球展开回面板 */
+    private fun expand() {
+        collapsed = false
+        bubble?.let { runCatching { wm.removeView(it) } }
+        bubble = null
+        frame?.let {
+            runCatching { wm.addView(it, params) }
+        }
     }
 
     private fun hideKeyboard(v: View) {
@@ -273,7 +397,10 @@ class FloatingService : Service() {
     }
 
     override fun onDestroy() {
-        root?.let { runCatching { wm.removeView(it) } }
+        frame?.let { runCatching { wm.removeView(it) } }
+        bubble?.let { runCatching { wm.removeView(it) } }
+        frame = null
+        bubble = null
         root = null
         scope.cancel()
         super.onDestroy()

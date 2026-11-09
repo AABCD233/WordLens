@@ -218,9 +218,8 @@ private fun Present(state: DictationUi, onNext: () -> Unit, onPrev: () -> Unit, 
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { onSpeak(if (state.reverse) cur.word else firstGloss(cur)) }) {
-                Text("朗读")
-            }
+            // 一律念英文单词：中文提示走系统 TTS 念不出来，念英文还能帮着回忆拼写
+            TextButton(onClick = { onSpeak(cur.word) }) { Text("朗读") }
         }
         Spacer(Modifier.height(28.dp))
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {

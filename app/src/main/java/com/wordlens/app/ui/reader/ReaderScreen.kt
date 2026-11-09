@@ -161,6 +161,18 @@ fun ReaderScreen(
                     onWordTap = onWordTap
                 )
             }
+
+            // 翻页按钮画在内容之后，才不会被图片/文字盖住
+            if (!state.loading && state.error == null) {
+                Row(
+                    Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    SideNavButton("‹") { onPrevDoc() }
+                    SideNavButton("›") { onNextDoc() }
+                }
+            }
         }
     }
 
