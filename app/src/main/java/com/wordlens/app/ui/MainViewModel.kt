@@ -73,22 +73,25 @@ data class WordbookUi(
     val query: String = ""
 )
 
+enum class DictationStage { SETUP, PRESENT, REVIEW, RESULT }
+
 data class DictationUi(
-    val active: Boolean = false,
-    val finished: Boolean = false,
+    val stage: DictationStage = DictationStage.SETUP,
+    /** 打乱后的题目（就是用户选中的那些词） */
     val queue: List<SavedWord> = emptyList(),
+    /** PRESENT 阶段看到第几个；REVIEW 阶段同样用它 */
     val index: Int = 0,
-    val input: String = "",
-    val revealed: Boolean = false,
-    val lastCorrect: Boolean = false,
-    val correct: Int = 0,
-    /** true = 看英文写中文 */
+    /** REVIEW 阶段每个词的对错，顺序与 queue 一致；null = 还没评 */
+    val marks: List<Boolean?> = emptyList(),
+    /** true = 显示英文（写中文）；false = 显示中文（写英文） */
     val reverse: Boolean = false,
-    /** 生词本里的全部候选词 */
     val pool: List<SavedWord> = emptyList(),
-    /** 用户勾选的词（为空则随机抽） */
     val selected: Set<String> = emptySet()
-)
+) {
+    val total: Int get() = queue.size
+    val correct: Int get() = marks.count { it == true }
+    val wrong: Int get() = marks.count { it == false }
+}
 
 data class ReviewUi(
     val active: Boolean = false,
@@ -550,8 +553,9 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun toggleDictationPick(word: String) {
         val cur = _dictation.value.selected
-        val next = if (word in cur) cur - word else cur + word
-        _dictation.value = _dictation.value.copy(selected = next)
+        _dictation.value = _dictation.value.copy(
+            selected = if (word in cur) cur - word else cur + word
+        )
     }
 
     fun clearDictationPicks() {
@@ -559,66 +563,82 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     }
 
     fun selectAllDictation() {
-        val all = _dictation.value.pool.map { it.word }.toSet()
-        _dictation.value = _dictation.value.copy(selected = all)
+        _dictation.value = _dictation.value.copy(
+            selected = _dictation.value.pool.map { it.word }.toSet()
+        )
     }
 
-    fun startDictation(count: Int, reverse: Boolean) {
+    /**
+     * 开始默写：出题范围只取用户勾选的词（不勾就用全部生词），整体打乱，不限制数量。
+     * 先只显示提示（英文或中文），用户在纸面上写；全部翻完后再逐词自评对错。
+     */
+    fun startDictation(reverse: Boolean) {
         val st = _dictation.value
-        val source = if (st.selected.isNotEmpty()) {
-            st.pool.filter { it.word in st.selected }
-        } else {
-            st.pool
-        }
+        val source = if (st.selected.isNotEmpty()) st.pool.filter { it.word in st.selected } else st.pool
         if (source.isEmpty()) {
             _messages.tryEmit(
                 if (st.pool.isEmpty()) "生词本是空的，先加几个词再来默写"
-                else "还没勾选单词，勾几个或直接开始（随机抽）"
+                else "还没勾选单词，勾几个或全选后再开始"
             )
             return
         }
-        val picked = source.shuffled().take(count.coerceIn(1, source.size))
-        _dictation.value = DictationUi(
-            active = true,
-            queue = picked,
-            reverse = reverse,
-            pool = st.pool,
-            selected = st.selected
-        )
-    }
-
-    fun dictationInput(text: String) {
-        _dictation.value = _dictation.value.copy(input = text)
-    }
-
-    fun submitDictation() {
-        val st = _dictation.value
-        val cur = st.queue.getOrNull(st.index) ?: return
-        val ok = judge(st.input, cur, st.reverse)
         _dictation.value = st.copy(
-            revealed = true,
-            lastCorrect = ok,
-            correct = st.correct + if (ok) 1 else 0
+            stage = DictationStage.PRESENT,
+            queue = source.shuffled(),
+            index = 0,
+            marks = List(source.size) { null },
+            reverse = reverse
         )
     }
 
-    fun nextDictation() {
+    fun nextDictationCard() {
         val st = _dictation.value
-        val nextIndex = st.index + 1
-        _dictation.value = if (nextIndex >= st.queue.size) {
-            recordDictation(st.correct, st.queue.size)
-            st.copy(finished = true, active = false, index = nextIndex)
+        _dictation.value = if (st.index + 1 >= st.total) {
+            st.copy(stage = DictationStage.REVIEW, index = 0)
         } else {
-            st.copy(index = nextIndex, input = "", revealed = false, lastCorrect = false)
+            st.copy(index = st.index + 1)
         }
     }
 
+    fun prevDictationCard() {
+        val st = _dictation.value
+        _dictation.value = st.copy(index = (st.index - 1).coerceAtLeast(0))
+    }
+
+    /** REVIEW 阶段标记当前词对/错 */
+    fun markDictation(correct: Boolean) {
+        val st = _dictation.value
+        if (st.index !in st.marks.indices) return
+        val marks = st.marks.toMutableList()
+        marks[st.index] = correct
+        val next = if (st.index + 1 >= st.total) {
+            recordDictation(marks.count { it == true }, st.total)
+            st.copy(marks = marks, stage = DictationStage.RESULT)
+        } else {
+            st.copy(marks = marks, index = st.index + 1)
+        }
+        _dictation.value = next
+    }
+
+    /** 结果页之后回到设置页 */
     fun finishDictation() {
         val st = _dictation.value
         _dictation.value = DictationUi(pool = st.pool, selected = st.selected)
     }
 
+    fun restartDictation() {
+        val st = _dictation.value
+        if (st.queue.isEmpty()) return
+        _dictation.value = st.copy(
+            stage = DictationStage.PRESENT,
+            queue = st.queue.shuffled(),
+            index = 0,
+            marks = List(st.total) { null }
+        )
+    }
+
     private fun recordDictation(correct: Int, total: Int) {
+        if (total <= 0) return
         val line = "$correct/$total@${formatTimestamp()}"
         val kept = (listOf(line) + dictationHistory()).take(20)
         updateSettings { it.copy(dictationHistory = kept.joinToString("\n")) }
@@ -627,18 +647,6 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private fun formatTimestamp(): String =
         java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
             .format(java.util.Date())
-
-    /** 英文题严格比对；中文题按命中字数粗判（>=2 个字算对） */
-    private fun judge(input: String, w: SavedWord, reverse: Boolean): Boolean {
-        val ans = input.trim()
-        if (ans.isEmpty()) return false
-        return if (!reverse) {
-            ans.equals(w.word, ignoreCase = true)
-        } else {
-            val zh = w.translation
-            ans.count { it in zh } >= 2
-        }
-    }
 
     fun exitReview() {
         _review.value = ReviewUi()

@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -165,7 +167,7 @@ fun ConfirmDeleteDialog(
 /** 首次启动的免责声明：读 5 秒才允许继续 */
 @Composable
 fun DisclaimerDialog(onAccept: () -> Unit) {
-    var left by remember { mutableStateOf(5) }
+    var left by remember { mutableStateOf(8) }
     LaunchedEffect(Unit) {
         while (left > 0) {
             kotlinx.coroutines.delay(1000)
@@ -175,24 +177,73 @@ fun DisclaimerDialog(onAccept: () -> Unit) {
     AlertDialog(
         // 点外部/返回都不关，必须读完点按钮
         onDismissRequest = {},
-        title = { Text("使用前请知悉") },
+        title = { Text("使用前请先读一遍") },
         text = {
-            Column {
-                Text(
-                    "1. 本项目由 AI 辅助开发，仍在开发初期，可能有 bug，请自行评估风险。\n" +
-                        "2. 查词结果来自开源词典与第三方服务，仅供参考，不作为考试或法律依据。\n" +
-                        "3. 照片只在本机识别，不会上传；联网功能（在线词典 / 翻译 / AI / 在线朗读）会把你要查的单词或句子发出去。\n" +
-                        "4. AI 相关功能为实验性，可能需要你自己配置接口并产生费用。\n" +
-                        "5. 使用本 App 即表示你理解并接受以上内容。",
-                    style = MaterialTheme.typography.bodySmall,
-                    lineHeight = 21.sp
+            Column(
+                Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Section("一、关于这个 App")
+                Body(
+                    "词镜是一个个人开发的英语学习辅助工具，用拍照识别英文文章、点词查释义。" +
+                        "项目由 AI 参与编写，目前仍在开发初期，功能不完整、边界情况可能没覆盖，" +
+                        "也可能存在崩溃、卡顿、耗电等缺陷。"
+                )
+
+                Section("二、释义仅供参考")
+                Body(
+                    "词典内容来自开源词库 ECDICT（约 11 万词）与第三方在线服务，" +
+                        "机器整理的词性、释义、例句可能存在错误或过时。" +
+                        "请不要把本 App 的解释当作考试答案、翻译交付或法律、医疗等专业用途的依据。"
+                )
+
+                Section("三、你的数据")
+                Body(
+                    "· 照片与识别结果只存在手机本地，不会上传到任何服务器。\n" +
+                        "· 生词本、自定义释义、复习记录存在本地数据库；卸载 App 会一并删除，建议定期用「数据备份」导出。\n" +
+                        "· 联网功能（在线词典、翻译、AI 详解、在线朗读）会把你要查的单词或句子发送到对应服务商，整篇翻译/精读则发送全文。\n" +
+                        "· 使用 AI 功能需要你自己填接口地址和密钥，密钥只存在本机。"
+                )
+
+                Section("四、网络与第三方服务")
+                Body(
+                    "在线功能依赖第三方接口，可能随时限流、改协议或停止服务，导致查不到、报错或很慢；" +
+                        "这些都不影响离线查词、生词本和复习。若开启 AI，产生的调用费用由你的账号承担。"
+                )
+
+                Section("五、权限说明")
+                Body(
+                    "相机：拍照识别；相册：选图识别；通知：悬浮球前台服务需要常驻通知；" +
+                        "「显示在其他应用上层」：仅在你主动开启悬浮球查词时使用。"
+                )
+
+                Section("六、责任")
+                Body(
+                    "本软件按「现状」提供，不附带任何担保。因使用本软件造成的成绩、翻译、数据丢失等问题，" +
+                        "作者不承担责任。继续使用即表示你已理解并接受以上内容。"
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAccept, enabled = left == 0) {
-                Text(if (left == 0) "我知道了" else "请阅读（${left}s）")
+                Text(if (left == 0) "我已阅读并同意" else "请阅读（${left}s）")
             }
         }
     )
+}
+
+@Composable
+private fun Section(t: String) {
+    Text(
+        t,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        modifier = Modifier.padding(top = 10.dp, bottom = 3.dp)
+    )
+}
+
+@Composable
+private fun Body(t: String) {
+    Text(t, style = MaterialTheme.typography.bodySmall, lineHeight = 20.sp)
 }

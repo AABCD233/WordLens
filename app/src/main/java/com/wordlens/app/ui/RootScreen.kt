@@ -207,15 +207,15 @@ fun RootScreen(
                         state = dictation,
                         history = vm.dictationHistory(),
                         onStart = vm::startDictation,
-                        onInput = vm::dictationInput,
-                        onSubmit = vm::submitDictation,
-                        onNext = vm::nextDictation,
+                        onNext = vm::nextDictationCard,
+                        onPrev = vm::prevDictationCard,
+                        onMark = vm::markDictation,
+                        onRestart = vm::restartDictation,
                         onFinish = vm::finishDictation,
                         onSpeak = vm::speak,
                         onTogglePick = vm::toggleDictationPick,
                         onClearPicks = vm::clearDictationPicks,
-                        onSelectAll = vm::selectAllDictation,
-                        onLoadPool = vm::loadDictationPool
+                        onSelectAll = vm::selectAllDictation
                     )
 
                     Tab.Settings -> SettingsScreen(

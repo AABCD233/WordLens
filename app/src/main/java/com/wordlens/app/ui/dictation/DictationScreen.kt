@@ -12,16 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,32 +29,36 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wordlens.app.data.model.SavedWord
+import com.wordlens.app.ui.DictationStage
 import com.wordlens.app.ui.DictationUi
 import com.wordlens.app.ui.theme.PageTitleStyle
 
 /**
- * 单词默写：从生词本抽词，看提示写英文，自评对错，记成绩。
+ * 单词默写：不判分、不输入。
  *
- * 提示可以只给中文（写英文），也可以只给英文（写中文）——设置里选的模式决定。
+ * 出题阶段只给提示（英文或中文）+ 朗读，用户在纸上写；
+ * 全部翻完后逐词展示完整释义，用户自己标「对/错」；最后给正确率和逐词结果。
  */
 @Composable
 fun DictationScreen(
     state: DictationUi,
     history: List<String>,
-    onStart: (Int, Boolean) -> Unit,   // 题数、是否「英文→中文」
-    onInput: (String) -> Unit,
-    onSubmit: () -> Unit,
+    onStart: (Boolean) -> Unit,          // 是否「看英文写中文」
     onNext: () -> Unit,
+    onPrev: () -> Unit,
+    onMark: (Boolean) -> Unit,
+    onRestart: () -> Unit,
     onFinish: () -> Unit,
     onSpeak: (String) -> Unit,
     onTogglePick: (String) -> Unit,
     onClearPicks: () -> Unit,
-    onSelectAll: () -> Unit,
-    onLoadPool: () -> Unit
+    onSelectAll: () -> Unit
 ) {
     Column(
         Modifier
@@ -67,151 +68,134 @@ fun DictationScreen(
     ) {
         Text("默写", style = PageTitleStyle)
         Text(
-            "从生词本里抽词，写出来对答案",
+            "遮住释义，看提示把单词写下来",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
-        when {
-            state.finished -> ResultCard(state, history, onStart, onFinish)
-            state.active -> QuestionCard(state, onInput, onSubmit, onNext, onSpeak)
-            else -> StartCard(state, history, onStart, onTogglePick, onClearPicks, onSelectAll)
+        when (state.stage) {
+            DictationStage.SETUP -> Setup(state, history, onStart, onTogglePick, onClearPicks, onSelectAll)
+            DictationStage.PRESENT -> Present(state, onNext, onPrev, onSpeak)
+            DictationStage.REVIEW -> Review(state, onMark, onSpeak)
+            DictationStage.RESULT -> Result(state, onRestart, onFinish)
         }
     }
 }
 
+// ---------------- 设置 ----------------
+
 @Composable
-private fun StartCard(
+private fun Setup(
     state: DictationUi,
     history: List<String>,
-    onStart: (Int, Boolean) -> Unit,
+    onStart: (Boolean) -> Unit,
     onTogglePick: (String) -> Unit,
     onClearPicks: () -> Unit,
     onSelectAll: () -> Unit
 ) {
-    var count by remember { mutableStateOf(10) }
-    var reverse by remember { mutableStateOf(false) }   // false = 中文提示写英文
+    var reverse by remember { mutableStateOf(false) }
 
     Card {
-        Text("出题设置", fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(10.dp))
-        Text("题目数量", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-            listOf(5, 10, 20).forEach { n ->
-                ChoiceChip("$n 个", count == n) { count = n }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Text("提问方式", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+        Text("提问方式", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ChoiceChip("看中文·写英文", !reverse) { reverse = false }
             ChoiceChip("看英文·写中文", reverse) { reverse = true }
         }
         Spacer(Modifier.height(14.dp))
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "自选单词（可选）",
+                "选词（${state.selected.size}/${state.pool.size}）",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.weight(1f))
-            if (state.selected.isNotEmpty()) {
-                Text(
-                    "已选 ${state.selected.size}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
             Text(
                 "全选",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier
-                    .clickable { onSelectAll() }
+                modifier = Modifier.clickable { onSelectAll() }
                     .padding(start = 10.dp, top = 6.dp, bottom = 6.dp, end = 6.dp)
             )
             Text(
                 "清空",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier
-                    .clickable { onClearPicks() }
+                modifier = Modifier.clickable { onClearPicks() }
                     .padding(start = 6.dp, top = 6.dp, bottom = 6.dp)
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
         if (state.pool.isEmpty()) {
             Text(
-                "生词本还是空的，加几个词就能在这里挑",
+                "生词本还是空的，先去加几个词",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            Column {
-                state.pool.take(60).forEach { w ->
-                    val on = w.word in state.selected
-                    Row(
+            state.pool.take(60).forEach { w ->
+                val on = w.word in state.selected
+                Row(
+                    Modifier.fillMaxWidth().clickable { onTogglePick(w.word) }.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
                         Modifier
-                            .fillMaxWidth()
-                            .clickable { onTogglePick(w.word) }
-                            .padding(vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .size(20.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                if (on) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceContainerHighest
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            Modifier
-                                .size(20.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(
-                                    if (on) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surfaceContainerHighest
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (on) Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(w.word, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                w.translation.lineSequence().firstOrNull() ?: "",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
-                        }
+                        if (on) Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(w.word, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            w.translation.lineSequence().firstOrNull() ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
                     }
                 }
-                if (state.pool.size > 60) {
-                    Text(
-                        "只显示前 60 个；不勾选就是从全部 ${state.pool.size} 个里随机抽",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            }
+            if (state.pool.size > 60) {
+                Text(
+                    "只列前 60 个；全选会用上全部 ${state.pool.size} 个",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { onStart(count, reverse) }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (state.selected.isEmpty()) "开始默写（随机抽）" else "开始默写（已选 ${state.selected.size}）")
+        Button(
+            onClick = { onStart(reverse) },
+            enabled = state.selected.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (state.selected.isEmpty()) "先勾选要默写的单词"
+                else "开始默写（${state.selected.size} 个，已打乱）"
+            )
         }
-        Text(
-            "题目从「生词本」里随机抽取；生词本是空的就先加几个词。",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
     }
+
     if (history.isNotEmpty()) {
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
         Card {
             Text("成绩记录", fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
-            history.take(12).forEach { line ->
+            history.take(10).forEach { line ->
                 val parts = line.split("@")
                 Text(
-                    "${parts.getOrElse(1) { "" }}   ${parts.firstOrNull() ?: line}",
+                    "${parts.getOrElse(1) { "" }}    ${parts.firstOrNull() ?: line}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 2.dp)
@@ -221,114 +205,120 @@ private fun StartCard(
     }
 }
 
+// ---------------- 出题（只给提示，不输入） ----------------
+
 @Composable
-private fun QuestionCard(
-    state: DictationUi,
-    onInput: (String) -> Unit,
-    onSubmit: () -> Unit,
-    onNext: () -> Unit,
-    onSpeak: (String) -> Unit
-) {
-    val current = state.queue.getOrNull(state.index) ?: return
+private fun Present(state: DictationUi, onNext: () -> Unit, onPrev: () -> Unit, onSpeak: (String) -> Unit) {
+    val cur = state.queue.getOrNull(state.index) ?: return
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "第 ${state.index + 1} / ${state.queue.size} 题",
+                "${state.index + 1} / ${state.total}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onSpeak(if (state.reverse) cur.word else firstGloss(cur)) }) {
+                Text("朗读")
+            }
+        }
+        Spacer(Modifier.height(28.dp))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(
-                "答对 ${state.correct}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
+                if (state.reverse) cur.word else firstGloss(cur),
+                fontSize = if (state.reverse) 34.sp else 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 34.sp,
+                textAlign = TextAlign.Center
             )
         }
-        Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = { (state.index + 1f) / state.queue.size },
-            modifier = Modifier.fillMaxWidth().height(6.dp)
-        )
-        Spacer(Modifier.height(18.dp))
-
-        // 题干
+        Spacer(Modifier.height(28.dp))
         Text(
-            if (state.reverse) current.word else (current.translation.lineSequence().firstOrNull() ?: current.word),
-            fontSize = if (state.reverse) 40.sp else 26.sp,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = 36.sp
+            "在纸上写下来，写完再点「下一个」",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
         )
-        if (!state.reverse && current.phonetic.isNotBlank()) {
-            Text(
-                "/${current.phonetic}/",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = state.input,
-            onValueChange = onInput,
-            label = { Text(if (state.reverse) "写出中文意思" else "写出英文单词") },
-            singleLine = true,
-            enabled = !state.revealed,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(12.dp))
-
-        if (!state.revealed) {
-            Button(onClick = onSubmit, enabled = state.input.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                Text("提交")
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onPrev, enabled = state.index > 0, modifier = Modifier.weight(1f)) {
+                Text("上一个")
             }
-        } else {
-            Surface(
-                color = if (state.lastCorrect) MaterialTheme.colorScheme.secondaryContainer
-                else MaterialTheme.colorScheme.errorContainer,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    Text(
-                        if (state.lastCorrect) "答对了 ✓" else "答案：${if (state.reverse) current.translation else current.word}",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    if (!state.reverse && current.translation.isNotBlank()) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            current.translation.lineSequence().firstOrNull() ?: "",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { onSpeak(if (state.reverse) current.word else current.translation) }) {
-                    Text("朗读")
-                }
-                Button(onClick = onNext, modifier = Modifier.weight(1f)) {
-                    Text(if (state.index + 1 >= state.queue.size) "看成绩" else "下一题")
-                }
+            Button(onClick = onNext, modifier = Modifier.weight(2f)) {
+                Text(if (state.index + 1 >= state.total) "写完了，开始批改" else "下一个")
             }
         }
     }
 }
 
+// ---------------- 逐词自评 ----------------
+
 @Composable
-private fun ResultCard(
-    state: DictationUi,
-    history: List<String>,
-    onStart: (Int, Boolean) -> Unit,
-    onFinish: () -> Unit
-) {
-    val total = state.queue.size.coerceAtLeast(1)
+private fun Review(state: DictationUi, onMark: (Boolean) -> Unit, onSpeak: (String) -> Unit) {
+    val cur = state.queue.getOrNull(state.index) ?: return
     Card {
-        Text("本轮结束", fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "批改 ${state.index + 1} / ${state.total}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onSpeak(cur.word) }) { Text("朗读") }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(cur.word, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
+        if (cur.phonetic.isNotBlank()) {
+            Text(
+                "/${cur.phonetic}/",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Spacer(Modifier.height(10.dp))
         Text(
-            "答对 ${state.correct} / $total",
-            fontSize = 32.sp,
+            fullGloss(cur),
+            style = MaterialTheme.typography.bodyMedium,
+            lineHeight = 23.sp
+        )
+        if (cur.definition.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                cur.definition.take(220),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 20.sp
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onMark(false) },
+                modifier = Modifier.weight(1f),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) { Text("写错了") }
+            Button(onClick = { onMark(true) }, modifier = Modifier.weight(1f)) {
+                Text("写对了")
+            }
+        }
+    }
+}
+
+// ---------------- 结果 ----------------
+
+@Composable
+private fun Result(state: DictationUi, onRestart: () -> Unit, onFinish: () -> Unit) {
+    val total = state.total.coerceAtLeast(1)
+    Card {
+        Text("本轮结果", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "${state.correct} / $total",
+            fontSize = 34.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary
         )
@@ -337,17 +327,48 @@ private fun ResultCard(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onStart(total, state.reverse) }, modifier = Modifier.weight(1f)) {
-                Text("再来一轮")
-            }
-            OutlinedButton(onClick = onFinish, modifier = Modifier.weight(1f)) {
-                Text("返回")
+            Button(onClick = onRestart, modifier = Modifier.weight(1f)) { Text("再来一轮") }
+            OutlinedButton(onClick = onFinish, modifier = Modifier.weight(1f)) { Text("返回") }
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+    Card {
+        Text("逐词结果", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        state.queue.forEachIndexed { i, w ->
+            val ok = state.marks.getOrNull(i) == true
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(if (ok) "✓" else "✗", color = if (ok) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(w.word, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        firstGloss(w),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
 }
+
+// ---------------- 小工具 ----------------
+
+private fun firstGloss(w: SavedWord): String =
+    w.translation.lineSequence().firstOrNull { it.isNotBlank() }
+        ?: w.definition.lineSequence().firstOrNull { it.isNotBlank() }
+        ?: w.word
+
+private fun fullGloss(w: SavedWord): String =
+    w.translation.ifBlank { w.definition }.ifBlank { "（没有释义）" }
 
 @Composable
 private fun Card(content: @Composable () -> Unit) {
@@ -368,10 +389,6 @@ private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
         shape = RoundedCornerShape(50),
         modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-        )
+        Text(label, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp))
     }
 }

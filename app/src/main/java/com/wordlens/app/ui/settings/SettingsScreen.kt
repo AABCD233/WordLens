@@ -173,6 +173,11 @@ fun SettingsScreen(
                 if (officialInstalled) "已装在手机上，占比以列表里显示的为准（解压后约 85 MB）。"
                 else "下载的是压缩包（约 37 MB），解压后占 84.6 MB；失败会自动换源。"
             )
+            ToggleRow(
+                "GitHub 加速下载",
+                "走 gh-proxy 等镜像站点，国内更稳；关掉则直连 GitHub",
+                settings.githubAccel
+            ) { checked -> onUpdate { it.copy(githubAccel = checked) } }
 
             Spacer(Modifier.height(10.dp))
             SubTitle("或者填自己的词典包地址")
@@ -368,12 +373,6 @@ fun SettingsScreen(
                     onRequestOverlayPermission()
                 }
             }
-
-            ToggleRow(
-                "使用 GitHub 加速",
-                "下载词典包、检查更新时走镜像站点；关掉则直连",
-                settings.githubAccel
-            ) { checked -> onUpdate { it.copy(githubAccel = checked) } }
 
             Spacer(Modifier.height(10.dp))
             Text(
