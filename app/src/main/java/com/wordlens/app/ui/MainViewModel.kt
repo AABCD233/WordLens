@@ -113,6 +113,10 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private val _library = MutableStateFlow<List<DocumentRow>>(emptyList())
     val library: StateFlow<List<DocumentRow>> = _library.asStateFlow()
 
+    /** 本次连拍产生的文档 id（按拍摄顺序），阅读页翻页只在这一组里走 */
+    private val batchIds = mutableListOf<Long>()
+    private var batchActive = false
+
     private val _reader = MutableStateFlow(ReaderUi())
     val reader: StateFlow<ReaderUi> = _reader.asStateFlow()
 
@@ -198,6 +202,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
                     createdAt = System.currentTimeMillis()
                 )
                 val id = app.database.insertDocument(doc)
+                if (batchActive) batchIds.add(id)
                 _reader.value = ReaderUi(
                     loading = false,
                     docId = id,
@@ -213,8 +218,40 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         }
     }
 
+    /** 开始/结束一次连拍，翻页范围只限于这一批 */
+    fun beginBatch() {
+        batchIds.clear()
+        batchActive = true
+    }
+
+    fun endBatch() {
+        batchActive = false
+        if (batchIds.size > 1) {
+            _messages.tryEmit("本次连拍 ${batchIds.size} 张，可用左右箭头翻页")
+        }
+    }
+
     /** 阅读页左右翻：在识别记录列表里切上一张 / 下一张 */
     fun openAdjacent(delta: Int) {
+        // 连拍过就只在那一批里翻，不掺历史记录
+        if (batchIds.size > 1) {
+            val cur = _reader.value.docId
+            val idx = batchIds.indexOf(cur)
+            if (idx < 0) {
+                _messages.tryEmit("这不是连拍里的照片")
+                return
+            }
+            val target = batchIds.getOrNull(idx + delta)
+            if (target == null) {
+                _messages.tryEmit(
+                    if (delta < 0) "已经是本组第一张" else "已经是本组最后一张"
+                )
+                return
+            }
+            _messages.tryEmit("本组第 ${idx + delta + 1} / ${batchIds.size} 张")
+            openDocument(target)
+            return
+        }
         scope.launch {
             val docs = app.database.allDocuments()
             if (docs.isEmpty()) return@launch

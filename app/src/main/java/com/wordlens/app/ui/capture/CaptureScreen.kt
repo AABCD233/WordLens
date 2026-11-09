@@ -87,7 +87,9 @@ fun CaptureScreen(
     onCaptured: (Uri, java.io.File?) -> Unit,
     onRename: (DocumentRow) -> Unit,
     onDelete: (DocumentRow) -> Unit,
-    onMessage: (String) -> Unit
+    onMessage: (String) -> Unit,
+    onBatchStart: () -> Unit = {},
+    onBatchEnd: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -284,10 +286,12 @@ fun CaptureScreen(
                         pending.clear()
                         batchMode = false
                         scope.launch {
+                            onBatchStart()
                             items.forEachIndexed { i, (u, f) ->
                                 onCaptured(u, f)
                                 if (i < items.lastIndex) kotlinx.coroutines.delay(1500)
                             }
+                            onBatchEnd()
                             onMessage("已识别 ${items.size} 张")
                         }
                     } else {

@@ -176,7 +176,9 @@ fun RootScreen(
                             renameId = doc.id
                         },
                         onDelete = { doc -> deleteId = doc.id },
-                        onMessage = vm::toast
+                        onMessage = vm::toast,
+                        onBatchStart = vm::beginBatch,
+                        onBatchEnd = vm::endBatch
                     )
 
                     Tab.Search -> SearchScreen(
