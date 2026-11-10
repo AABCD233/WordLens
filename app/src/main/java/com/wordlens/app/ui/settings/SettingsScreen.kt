@@ -23,6 +23,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -367,13 +370,13 @@ fun SettingsScreen(
         // ---------- 关于 ----------
         SectionCard(title = "提醒与权限", subtitle = "每日复习提醒 · 权限自检", defaultExpanded = false) {
             val ctx = androidx.compose.ui.platform.LocalContext.current
-            var permTick by remember { mutableStateOf(0) }
+            val permTick = remember { mutableStateOf(0) }
             val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-            ) { permTick++ }
+            ) { permTick.value++ }
             val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-            ) { permTick++ }
+            ) { permTick.value++ }
 
             ToggleRow(
                 "每日复习提醒",
