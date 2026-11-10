@@ -57,6 +57,8 @@ fun WordbookScreen(
     var query by remember { mutableStateOf(state.query) }
     var selectMode by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<String>()) }
+    var groupDialogFor by remember { mutableStateOf<String?>(null) }
+    var batchGroup by remember { mutableStateOf<List<String>?>(null) }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -173,8 +175,6 @@ fun WordbookScreen(
                 .sortedByDescending { (name, _) -> name }
         }
         val collapsed = remember { mutableStateMapOf<String, Boolean>() }
-        var groupDialogFor by remember { mutableStateOf<String?>(null) }
-        var batchGroup by remember { mutableStateOf<List<String>?>(null) }
 
         LazyColumn(
             contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 130.dp),
