@@ -88,7 +88,8 @@ fun CaptureScreen(
     onRename: (DocumentRow) -> Unit,
     onDelete: (DocumentRow) -> Unit,
     onMessage: (String) -> Unit,
-    onBatch: (List<Pair<Uri, java.io.File?>>) -> Unit = {}
+    onBatch: (List<Pair<Uri, java.io.File?>>) -> Unit = {},
+    onOpenHistory: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -339,6 +340,26 @@ fun CaptureScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.padding(bottom = 12.dp)
             ) {
+                item(key = "all") {
+                    Card(
+                        modifier = Modifier.width(120.dp).height(150.dp).clickable { onOpenHistory() },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                        )
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("›", fontSize = 26.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "查看全部",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
                 items(recent, key = { it.id }) { doc ->
                     var menuOpen by remember(doc.id) { mutableStateOf(false) }
                     Card(

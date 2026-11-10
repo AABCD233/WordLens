@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -580,7 +581,12 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
                 _messages.tryEmit("今天没有到期的词，去拍照读一段吧")
                 return@launch
             }
-            _review.value = ReviewUi(active = true, queue = queue, index = 0, revealed = false)
+            _review.value = ReviewUi(
+                active = true,
+                queue = queue.shuffled(),
+                index = 0,
+                revealed = false
+            )
         }
     }
 
@@ -608,6 +614,49 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
                 reviewed = state.reviewed + 1
             )
             if (done) refreshWordbook()
+        }
+    }
+
+    // ---------------- 生词本分组 / 导出 / 批量删除 ----------------
+
+    fun setWordGroup(word: String, group: String) {
+        scope.launch {
+            app.database.setWordGroup(word, group)
+            refreshWordbook()
+            _messages.tryEmit(if (group.isBlank()) "已移出分组" else "已归到「$group」")
+        }
+    }
+
+    fun deleteWords(words: List<String>) {
+        scope.launch {
+            val n = app.database.deleteWords(words)
+            refreshWordbook()
+            _messages.tryEmit("已删除 $n 个生词")
+        }
+    }
+
+    /** 导出纯英文单词清单（一行一个） */
+    fun exportWordList(uri: android.net.Uri) {
+        scope.launch {
+            runCatching {
+                val words = app.database.allWordNames()
+                withContext(Dispatchers.IO) {
+                    app.appContext.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(words.joinToString("\n").toByteArray())
+                    }
+                }
+                _messages.tryEmit("已导出 ${words.size} 个单词")
+            }.onFailure { _messages.tryEmit("导出失败：${it.message}") }
+        }
+    }
+
+    // ---------------- 识别记录管理 ----------------
+
+    fun deleteDocuments(ids: List<Long>) {
+        scope.launch {
+            val n = app.database.deleteDocuments(ids)
+            refreshLibrary()
+            _messages.tryEmit("已删除 $n 条记录")
         }
     }
 
@@ -755,6 +804,13 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         if (on) com.wordlens.app.floating.FloatingService.start(app.appContext)
         else com.wordlens.app.floating.FloatingService.stop(app.appContext)
         return true
+    }
+
+    fun setDailyReminder(on: Boolean, hour: Int = settings.value.reminderHour) {
+        updateSettings { it.copy(dailyReminder = on, reminderHour = hour) }
+        if (on) com.wordlens.app.reminder.ReminderScheduler.schedule(app.appContext, hour)
+        else com.wordlens.app.reminder.ReminderScheduler.cancel(app.appContext)
+        _messages.tryEmit(if (on) "已开启每日 ${hour}:00 复习提醒" else "已关闭每日提醒")
     }
 
     fun acceptDisclaimer() {

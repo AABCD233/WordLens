@@ -66,7 +66,7 @@ fun DictationScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
-        Text("默写", style = PageTitleStyle)
+        Text("默写", style = PageTitleStyle.copy(color = MaterialTheme.colorScheme.onBackground))
         Text(
             "遮住释义，看提示把单词写下来",
             style = MaterialTheme.typography.bodySmall,

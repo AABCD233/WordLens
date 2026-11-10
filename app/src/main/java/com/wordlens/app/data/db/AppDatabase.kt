@@ -53,7 +53,8 @@ class AppDatabase(context: Context) :
               due_at INTEGER NOT NULL DEFAULT 0,
               added_at INTEGER NOT NULL DEFAULT 0,
               reviewed_at INTEGER NOT NULL DEFAULT 0,
-              review_count INTEGER NOT NULL DEFAULT 0
+              review_count INTEGER NOT NULL DEFAULT 0,
+              grp TEXT NOT NULL DEFAULT ''
             )
             """.trimIndent()
         )
@@ -80,6 +81,10 @@ class AppDatabase(context: Context) :
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // 只做加法：不删表、不改列，老用户数据原样保留
+        if (oldVersion < 3) {
+            // 生词分组：空串 = 按加入日期自动分组
+            runCatching { db.execSQL("ALTER TABLE saved_word ADD COLUMN grp TEXT NOT NULL DEFAULT ''") }
+        }
         if (oldVersion < 2) {
             db.execSQL(
                 """
@@ -150,9 +155,35 @@ class AppDatabase(context: Context) :
             dueAt = existing?.dueAt ?: row.dueAt,
             addedAt = existing?.addedAt?.takeIf { it > 0 } ?: row.addedAt,
             reviewedAt = existing?.reviewedAt ?: row.reviewedAt,
-            reviewCount = existing?.reviewCount ?: row.reviewCount
+            reviewCount = existing?.reviewCount ?: row.reviewCount,
+            group = row.group.ifBlank { existing?.group ?: "" }
         ).toValues()
         db.insertWithOnConflict("saved_word", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    /** 修改某个生词的分组（空串 = 回到按日期） */
+    suspend fun setWordGroup(word: String, group: String): Unit = write { db ->
+        db.execSQL("UPDATE saved_word SET grp=? WHERE word=?", arrayOf(group, word))
+    }
+
+    /** 批量删除生词 */
+    suspend fun deleteWords(words: List<String>): Int = write { db ->
+        if (words.isEmpty()) return@write 0
+        val ids = words.joinToString(",") { "?" }
+        db.delete("saved_word", "word IN ($ids)", words.toTypedArray())
+    }
+
+    /** 批量删除识别记录 */
+    suspend fun deleteDocuments(ids: List<Long>): Int = write { db ->
+        if (ids.isEmpty()) return@write 0
+        val ph = ids.joinToString(",") { "?" }
+        db.delete("document", "id IN ($ph)", ids.map { it.toString() }.toTypedArray())
+    }
+
+    /** 导出用：全部生词，按加入时间排序 */
+    suspend fun allWordNames(): List<String> = read { db ->
+        db.rawQuery("SELECT word FROM saved_word ORDER BY added_at ASC, word ASC", null)
+            .useList { it.getString(0) }
     }
 
     suspend fun savedWords(query: String? = null, limit: Int = 500): List<SavedWord> = read { db ->
@@ -299,6 +330,7 @@ class AppDatabase(context: Context) :
         put("definition", definition); put("tags", tags); put("context", context)
         put("source", source); put("box", box); put("due_at", dueAt)
         put("added_at", addedAt); put("reviewed_at", reviewedAt); put("review_count", reviewCount)
+        put("grp", group)
     }
 
     private fun Cursor.toDocumentRow() = DocumentRow(
@@ -325,7 +357,8 @@ class AppDatabase(context: Context) :
         dueAt = getLong(getColumnIndexOrThrow("due_at")),
         addedAt = getLong(getColumnIndexOrThrow("added_at")),
         reviewedAt = getLong(getColumnIndexOrThrow("reviewed_at")),
-        reviewCount = getInt(getColumnIndexOrThrow("review_count"))
+        reviewCount = getInt(getColumnIndexOrThrow("review_count")),
+        group = runCatching { getString(getColumnIndexOrThrow("grp")) }.getOrDefault("")
     )
 
     private fun String.escapeLike() = replace("%", "\\%").replace("_", "\\_")
@@ -336,7 +369,7 @@ class AppDatabase(context: Context) :
 
     companion object {
         private const val NAME = "wordlens.db"
-        private const val VERSION = 2
+        private const val VERSION = 3
     }
 }
 

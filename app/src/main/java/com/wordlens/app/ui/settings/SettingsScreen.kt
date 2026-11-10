@@ -61,6 +61,7 @@ fun SettingsScreen(
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
     onCheckUpdate: () -> Unit,
+    onSetReminder: (Boolean, Int) -> Unit,
     onToggleFloating: (Boolean) -> Boolean,
     onRequestOverlayPermission: () -> Unit,
     onClearHistory: () -> Unit,
@@ -364,6 +365,65 @@ fun SettingsScreen(
         }
 
         // ---------- 关于 ----------
+        SectionCard(title = "提醒与权限", subtitle = "每日复习提醒 · 权限自检", defaultExpanded = false) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            var permTick by remember { mutableStateOf(0) }
+            val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { permTick++ }
+            val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { permTick++ }
+
+            ToggleRow(
+                "每日复习提醒",
+                "到点发一条通知，提醒你过一遍到期的词（用系统闹钟，不常驻后台）",
+                settings.dailyReminder
+            ) { on -> onSetReminder(on, settings.reminderHour) }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+                listOf(8, 12, 20, 22).forEach { h ->
+                    Surface(
+                        color = if (settings.reminderHour == h) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.clickable { onSetReminder(settings.dailyReminder, h) }
+                    ) {
+                        Text(
+                            "${h}:00",
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            SubTitle("权限自检")
+            val camOk = androidx.core.content.ContextCompat.checkSelfPermission(
+                ctx, android.Manifest.permission.CAMERA
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val notifOk = android.os.Build.VERSION.SDK_INT < 33 ||
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    ctx, android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val overlayOk = android.provider.Settings.canDrawOverlays(ctx)
+
+            PermRow("相机", "拍照识别", camOk) {
+                cameraLauncher.launch(android.Manifest.permission.CAMERA)
+            }
+            PermRow("通知", "每日提醒、悬浮窗常驻提示", notifOk) {
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+            PermRow("显示在其他应用上层", "悬浮查词", overlayOk) {
+                onRequestOverlayPermission()
+            }
+            Spacer(Modifier.height(4.dp))
+            Hint("都会在使用对应功能时按需申请；这里只是方便你一次性检查。关掉权限不影响离线查词。")
+        }
+
         SectionCard(title = "关于", subtitle = "词镜 WordLens " + com.wordlens.app.BuildConfig.VERSION_NAME, defaultExpanded = false) {
             Text(
                 "照片只在手机本地识别（ML Kit 端侧模型），不上传。\n" +
@@ -471,6 +531,27 @@ private fun SectionCard(
             if (expanded.value) {
                 Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) { content() }
             }
+        }
+    }
+}
+
+@Composable
+private fun PermRow(name: String, why: String, granted: Boolean, onRequest: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(if (granted) "✓" else "✕",
+            color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.bodyMedium)
+            Text(why, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (!granted) {
+            TextButton(onClick = onRequest) { Text("去开启", fontSize = 12.sp) }
         }
     }
 }

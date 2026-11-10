@@ -229,6 +229,7 @@ private fun ZhTextView(state: ReaderUi, onTranslate: () -> Unit, onRetry: () -> 
                 Text(
                     if (state.zhError != null) "翻译失败：${state.zhError}" else "把这一整篇英文翻成中文",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                     lineHeight = 22.sp
                 )
@@ -253,6 +254,7 @@ private fun AiArticleView(state: ReaderUi, aiReady: Boolean, onAnalyze: () -> Un
                 Text(
                     "AI 精读需要先配置接口：设置 → AI → 填 Base URL、模型名和 Key。",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                     lineHeight = 22.sp
                 )
@@ -292,6 +294,7 @@ private fun AiArticleView(state: ReaderUi, aiReady: Boolean, onAnalyze: () -> Un
                     if (state.aiArticleError != null) "AI 精读失败：${state.aiArticleError}"
                     else "让 AI 给这一段做精读笔记：主旨、重点词、难句拆解",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                     lineHeight = 22.sp
                 )

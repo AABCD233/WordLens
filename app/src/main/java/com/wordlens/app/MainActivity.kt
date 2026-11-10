@@ -46,11 +46,19 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by container.settings.state.collectAsState()
             WordLensTheme(dynamicColor = settings.dynamicColor) {
+                // 包一层 Surface：Text 默认取 LocalContentColor，裸放在 Box 里会是黑色，
+                // 深色模式下就成了黑字黑底（生词本标题、翻译提示那些都是这个原因）
+                androidx.compose.material3.Surface(
+                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.background,
+                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
+                ) {
                 RootScreen(
                     vm = viewModel,
                     quickSearch = quickSearch,
                     onQuickConsumed = { quickSearch = false }
                 )
+                }
             }
         }
 

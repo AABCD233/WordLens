@@ -62,17 +62,46 @@ class FloatingService : Service() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+    /** 跟随系统深浅色：悬浮窗是独立 Window，拿不到 Compose 主题，只能读配置 */
+    private fun isNight(): Boolean =
+        (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+    private class Palette(
+        val panel: Int, val panelStroke: Int, val title: Int,
+        val text: Int, val dim: Int, val inputBg: Int, val accent: Int
+    )
+
+    private fun palette(): Palette = if (isNight()) Palette(
+        panel = Color.parseColor("#1A211F"),
+        panelStroke = Color.parseColor("#3C4A46"),
+        title = Color.parseColor("#7FD1C4"),
+        text = Color.parseColor("#DEE4E1"),
+        dim = Color.parseColor("#9AA5A0"),
+        inputBg = Color.parseColor("#2A3331"),
+        accent = Color.parseColor("#0F6B63")
+    ) else Palette(
+        panel = Color.parseColor("#F7FBF9"),
+        panelStroke = Color.parseColor("#0F6B63"),
+        title = Color.parseColor("#0F6B63"),
+        text = Color.parseColor("#17201E"),
+        dim = Color.parseColor("#667570"),
+        inputBg = Color.parseColor("#EDF3F0"),
+        accent = Color.parseColor("#0F6B63")
+    )
+
     private var frame: android.widget.FrameLayout? = null
     private var bubble: TextView? = null
     private var collapsed = false
 
     private fun showPanel() {
+        val c = palette()
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 cornerRadius = dp(18).toFloat()
-                setColor(Color.parseColor("#F7FBF9"))
-                setStroke(dp(1), Color.parseColor("#0F6B63"))
+                setColor(c.panel)
+                setStroke(dp(1), c.panelStroke)
             }
             elevation = dp(8).toFloat()
             setPadding(dp(10), dp(8), dp(10), dp(10))
@@ -85,12 +114,12 @@ class FloatingService : Service() {
         }
         val title = TextView(this).apply {
             text = "词镜 · 悬浮查词"
-            setTextColor(Color.parseColor("#0F6B63"))
+            setTextColor(c.title)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
         val close = TextView(this).apply {
             text = "✕"
-            setTextColor(Color.parseColor("#667570"))
+            setTextColor(c.dim)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setPadding(dp(10), dp(2), dp(2), dp(2))
             setOnClickListener { collapse() }
@@ -107,15 +136,15 @@ class FloatingService : Service() {
         }
         val input = EditText(this).apply {
             hint = "输入英文单词"
-            setHintTextColor(Color.parseColor("#8A9691"))
-            setTextColor(Color.parseColor("#17201E"))
+            setHintTextColor(c.dim)
+            setTextColor(c.text)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             imeOptions = EditorInfo.IME_ACTION_SEARCH
             setSingleLine(true)
             background = GradientDrawable().apply {
                 cornerRadius = dp(12).toFloat()
-                setColor(Color.parseColor("#EDF3F0"))
+                setColor(c.inputBg)
             }
             setPadding(dp(10), dp(6), dp(10), dp(6))
         }
@@ -127,7 +156,7 @@ class FloatingService : Service() {
             setPadding(dp(12), dp(7), dp(12), dp(7))
             background = GradientDrawable().apply {
                 cornerRadius = dp(12).toFloat()
-                setColor(Color.parseColor("#0F6B63"))
+                setColor(c.accent)
             }
         }
         inputRow.addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
@@ -143,16 +172,16 @@ class FloatingService : Service() {
             setPadding(0, dp(8), 0, 0)
         }
         val head = TextView(this).apply {
-            setTextColor(Color.parseColor("#17201E"))
+            setTextColor(c.text)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
         val sub = TextView(this).apply {
-            setTextColor(Color.parseColor("#667570"))
+            setTextColor(c.dim)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
         val body = TextView(this).apply {
-            setTextColor(Color.parseColor("#17201E"))
+            setTextColor(c.text)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setLineSpacing(dp(3).toFloat(), 1f)
             setPadding(0, dp(4), 0, 0)
@@ -248,10 +277,15 @@ class FloatingService : Service() {
                 val ph = def.phonetic.orEmpty()
                 sub.text = if (ph.isBlank()) "" else "/$ph/"
                 val zh = (def.zhLines + def.baseZhLines).joinToString("\n")
+                val forms = def.inflections.joinToString("、") { it.replace(" / ", "/") }
                 val en = def.enMeanings.joinToString("\n") { m ->
                     m.partOfSpeech + " " + m.definitions.take(2).joinToString("；") { it.text }
                 }
-                body.text = listOf(zh, en).filter { it.isNotBlank() }.joinToString("\n\n")
+                body.text = listOf(
+                    zh,
+                    if (forms.isBlank()) "" else "词形：$forms",
+                    en
+                ).filter { it.isNotBlank() }.joinToString("\n\n")
                     .ifBlank { "（没有释义）" }
             }
         }

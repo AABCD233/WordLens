@@ -1,5 +1,7 @@
 package com.wordlens.app.ui.wordbook
 
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -47,7 +49,10 @@ fun WordbookScreen(
     onOpenWord: (String) -> Unit,
     onDelete: (String) -> Unit,
     onStartReview: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onSetGroup: (String, String) -> Unit = { _, _ -> },
+    onExportText: () -> Unit = {},
+    onDeleteMany: (List<String>) -> Unit = {}
 ) {
     var query by remember { mutableStateOf(state.query) }
 
@@ -57,13 +62,14 @@ fun WordbookScreen(
             verticalAlignment = Alignment.Bottom
         ) {
             Column(Modifier.weight(1f)) {
-                Text("生词本", style = PageTitleStyle)
+                Text("生词本", style = PageTitleStyle.copy(color = MaterialTheme.colorScheme.onBackground))
                 Text(
                     "点词加进来，按间隔重复复习",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            TextButton(onClick = onExportText) { Text("导出") }
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
@@ -119,16 +125,110 @@ fun WordbookScreen(
             return@Column
         }
 
+        // 按分组聚拢：自定义分组优先，没有就用加入日期
+        val groups = remember(state.items) {
+            state.items.groupBy { it.group.ifBlank { dateGroup(it.addedAt) } }
+                .toList()
+                .sortedByDescending { (name, _) -> name }
+        }
+        val collapsed = remember { mutableStateMapOf<String, Boolean>() }
+        var groupDialogFor by remember { mutableStateOf<String?>(null) }
+
         LazyColumn(
             contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 130.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(state.items, key = { it.word }) { item ->
-                WordRow(item, onOpenWord, onDelete)
+            groups.forEach { (name, words) ->
+                item(key = "header_$name") {
+                    GroupHeader(
+                        name = name,
+                        count = words.size,
+                        collapsed = collapsed[name] == true,
+                        onToggle = { collapsed[name] = collapsed[name] != true }
+                    )
+                }
+                if (collapsed[name] != true) {
+                    items(words, key = { it.word }) { item ->
+                        WordRow(
+                            item = item,
+                            onOpenWord = onOpenWord,
+                            onDelete = onDelete,
+                            onLongPress = { groupDialogFor = item.word }
+                        )
+                    }
+                }
             }
         }
+
+        groupDialogFor?.let { w ->
+            GroupDialog(
+                word = w,
+                onDismiss = { groupDialogFor = null },
+                onConfirm = { g ->
+                    onSetGroup(w, g)
+                    groupDialogFor = null
+                }
+            )
+        }
     }
+}
+
+private fun dateGroup(ts: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(ts))
+
+@Composable
+private fun GroupHeader(name: String, count: Int, collapsed: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(if (collapsed) "▸" else "▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            name,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "$count 词",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun GroupDialog(word: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("把 $word 放到…") },
+        text = {
+            Column {
+                Text(
+                    "填一个分组名，比如「四级」「课本第 3 单元」；留空就按加入日期分组。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    label = { Text("分组名", fontSize = 12.sp) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(text.trim()) }) { Text("确定") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 @Composable
@@ -140,7 +240,12 @@ private fun Stat(label: String, value: String) {
 }
 
 @Composable
-private fun WordRow(item: SavedWord, onOpenWord: (String) -> Unit, onDelete: (String) -> Unit) {
+private fun WordRow(
+    item: SavedWord,
+    onOpenWord: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onLongPress: () -> Unit = {}
+) {
     var expanded by remember(item.word) { mutableStateOf(false) }
     Card(
         colors = CardDefaults.cardColors(
@@ -156,7 +261,11 @@ private fun WordRow(item: SavedWord, onOpenWord: (String) -> Unit, onDelete: (St
                     Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClickLabel = "查看释义") { onOpenWord(item.word) }
+                        .combinedClickable(
+                onClickLabel = "查看释义",
+                onLongClickLabel = "移动到分组",
+                onLongClick = onLongPress
+            ) { onOpenWord(item.word) }
                         .padding(vertical = 2.dp, horizontal = 2.dp)
                 ) {
                     Text(item.word, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)

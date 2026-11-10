@@ -38,6 +38,10 @@ data class Settings(
     val azureRegion: String = "global",
     /** 当前使用的扩展词典包 id；空串 = 内置核心词典 */
     val activePackId: String = "",
+    /** 每日复习提醒 */
+    val dailyReminder: Boolean = false,
+    /** 提醒时间（0-23 点） */
+    val reminderHour: Int = 20,
     /** 是否开启应用外悬浮球查词 */
     val floatingButton: Boolean = false,
     /** 下载 GitHub 资源时是否走加速镜像 */
@@ -83,6 +87,8 @@ class AppSettings(context: Context) {
         azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
         azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global",
         activePackId = prefs.getString(K_PACK, "") ?: "",
+        dailyReminder = prefs.getBoolean(K_REMIND, false),
+        reminderHour = prefs.getInt(K_REMIND_HOUR, 20),
         floatingButton = prefs.getBoolean(K_FLOATING, false),
         githubAccel = prefs.getBoolean(K_ACCEL, true),
         disclaimerAccepted = prefs.getBoolean(K_DISCLAIMER, false),
@@ -114,6 +120,8 @@ class AppSettings(context: Context) {
             putString(K_AZ_KEY, next.azureKey)
             putString(K_AZ_REGION, next.azureRegion)
             putString(K_PACK, next.activePackId)
+            putBoolean(K_REMIND, next.dailyReminder)
+            putInt(K_REMIND_HOUR, next.reminderHour)
             putBoolean(K_FLOATING, next.floatingButton)
             putBoolean(K_ACCEL, next.githubAccel)
             putBoolean(K_DISCLAIMER, next.disclaimerAccepted)
@@ -154,6 +162,8 @@ class AppSettings(context: Context) {
         const val K_DICT_HIST = "dictation_history"
         const val K_ACCEL = "github_accel"
         const val K_FLOATING = "floating_button"
+        const val K_REMIND = "daily_reminder"
+        const val K_REMIND_HOUR = "reminder_hour"
         const val K_DISCLAIMER = "disclaimer_accepted"
     }
 }

@@ -26,7 +26,9 @@ data class SavedWord(
     val dueAt: Long = 0,
     val addedAt: Long = 0,
     val reviewedAt: Long = 0,
-    val reviewCount: Int = 0
+    val reviewCount: Int = 0,
+    /** 自定义分组；空串表示按加入日期自动分组 */
+    val group: String = ""
 ) {
     val isNew: Boolean get() = reviewCount == 0
 }

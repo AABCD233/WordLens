@@ -90,6 +90,11 @@ fun RootScreen(
         }
     }
 
+    var showHistory by remember { mutableStateOf(false) }
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri -> uri?.let { vm.exportWordList(it) } }
+
     // 上滑把胶囊收起来、下滑露出来（照 PiliPlus 的手感）
     var navVisible by remember { mutableStateOf(true) }
     val scrollConnection = remember {
@@ -125,6 +130,16 @@ fun RootScreen(
     BackHandler(enabled = !reviewing && !readerVisible && tab != Tab.Camera) { tab = Tab.Camera }
 
     when {
+        showHistory -> com.wordlens.app.ui.history.DocumentHistoryScreen(
+            docs = library,
+            onBack = { showHistory = false },
+            onOpen = { id ->
+                showHistory = false
+                vm.openDocument(id)
+            },
+            onDelete = { ids -> vm.deleteDocuments(ids) }
+        )
+
         reviewing -> ReviewScreen(
             state = review,
             speechRate = settings.speechRate,
@@ -178,7 +193,8 @@ fun RootScreen(
                         },
                         onDelete = { doc -> deleteId = doc.id },
                         onMessage = vm::toast,
-                        onBatch = vm::analyzeBatch
+                        onBatch = vm::analyzeBatch,
+                        onOpenHistory = { showHistory = true }
                     )
 
                     Tab.Search -> SearchScreen(
@@ -204,7 +220,10 @@ fun RootScreen(
                             reviewing = true
                             vm.startReview()
                         },
-                        onRefresh = { vm.refreshWordbook() }
+                        onRefresh = { vm.refreshWordbook() },
+                        onSetGroup = { w, g -> vm.setWordGroup(w, g) },
+                        onExportText = { exportLauncher.launch("wordlens-words.txt") },
+                        onDeleteMany = { ws -> vm.deleteWords(ws) }
                     )
 
                     Tab.Dictation -> DictationScreen(
@@ -239,6 +258,7 @@ fun RootScreen(
                         onClearHistory = vm::clearHistory,
                         onClearImages = vm::clearImages,
                         onCheckUpdate = vm::checkUpdate,
+                        onSetReminder = { on, hour -> vm.setDailyReminder(on, hour) },
                         onToggleFloating = vm::toggleFloating,
                         onRequestOverlayPermission = {
                             val i = android.content.Intent(
