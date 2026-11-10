@@ -808,8 +808,8 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun setDailyReminder(on: Boolean, hour: Int = settings.value.reminderHour) {
         updateSettings { it.copy(dailyReminder = on, reminderHour = hour) }
-        if (on) com.wordlens.app.reminder.ReminderScheduler.schedule(app.appContext, hour)
-        else com.wordlens.app.reminder.ReminderScheduler.cancel(app.appContext)
+        if (on) com.wordlens.app.reminder.ReminderService.start(app.appContext)
+        else com.wordlens.app.reminder.ReminderService.stop(app.appContext)
         _messages.tryEmit(if (on) "已开启每日 ${hour}:00 复习提醒" else "已关闭每日提醒")
     }
 

@@ -135,33 +135,63 @@ private fun Setup(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            state.pool.take(60).forEach { w ->
-                val on = w.word in state.selected
+            // 和生词本一致：按分组折叠，整组可一键选中
+            val groups = state.pool.groupBy { it.group.ifBlank { dDateGroup(it.addedAt) } }
+                .toList().sortedByDescending { it.first }
+            var openGroup by remember { mutableStateOf<String?>(null) }
+            groups.forEach { (name, words) ->
+                val allOn = words.all { it.word in state.selected }
+                val expanded = openGroup == name
                 Row(
-                    Modifier.fillMaxWidth().clickable { onTogglePick(w.word) }.padding(vertical = 6.dp),
+                    Modifier.fillMaxWidth().padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        Modifier
-                            .size(20.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (on) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceContainerHighest
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (on) Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp)
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(w.word, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            w.translation.lineSequence().firstOrNull() ?: "",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
+                    Text(
+                        if (expanded) "▾" else "▸",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable { openGroup = if (expanded) null else name }
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "$name（${words.size}）",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.weight(1f).clickable {
+                            openGroup = if (expanded) null else name
+                        }
+                    )
+                    Text(
+                        if (allOn) "取消本组" else "选本组",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.clickable {
+                            words.forEach { onTogglePick(it.word) }
+                        }.padding(6.dp)
+                    )
+                }
+                if (expanded) {
+                    words.forEach { w ->
+                        val on = w.word in state.selected
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onTogglePick(w.word) }
+                                .padding(vertical = 5.dp, horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(18.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (on) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceContainerHighest
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (on) Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontSize = 12.sp)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(w.word, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }
@@ -360,6 +390,9 @@ private fun Result(state: DictationUi, onRestart: () -> Unit, onFinish: () -> Un
 }
 
 // ---------------- 小工具 ----------------
+
+private fun dDateGroup(ts: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(ts))
 
 private fun firstGloss(w: SavedWord): String =
     w.translation.lineSequence().firstOrNull { it.isNotBlank() }

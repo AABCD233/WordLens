@@ -45,15 +45,20 @@
             </intent-filter>
         </activity>
         <receiver
-            android:name=".reminder.ReminderReceiver"
-            android:exported="false" />
-        <receiver
             android:name=".reminder.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <service
+            android:name=".reminder.ReminderService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="daily study reminder" />
+        </service>
         <service
             android:name=".floating.FloatingService"
             android:exported="false"

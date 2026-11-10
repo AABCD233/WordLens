@@ -55,6 +55,8 @@ fun WordbookScreen(
     onDeleteMany: (List<String>) -> Unit = {}
 ) {
     var query by remember { mutableStateOf(state.query) }
+    var selectMode by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(setOf<String>()) }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -69,7 +71,46 @@ fun WordbookScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            TextButton(onClick = onExportText) { Text("导出") }
+            TextButton(onClick = onExportText) { Text("导出", fontSize = 12.sp) }
+            TextButton(onClick = {
+                selectMode = !selectMode
+                if (!selectMode) selected = emptySet()
+            }) { Text(if (selectMode) "完成" else "多选", fontSize = 12.sp) }
+        }
+
+        if (selectMode) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "已选 ${selected.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = {
+                        selected = if (selected.size == state.items.size)
+                            emptySet() else state.items.map { it.word }.toSet()
+                    }) { Text("全选", fontSize = 12.sp) }
+                    TextButton(
+                        enabled = selected.isNotEmpty(),
+                        onClick = { batchGroup = selected.toList() }
+                    ) { Text("批量分组", fontSize = 12.sp) }
+                    TextButton(
+                        enabled = selected.isNotEmpty(),
+                        onClick = {
+                            onDeleteMany(selected.toList())
+                            selected = emptySet()
+                            selectMode = false
+                        }
+                    ) { Text("删除", fontSize = 12.sp) }
+                }
+            }
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
@@ -133,6 +174,7 @@ fun WordbookScreen(
         }
         val collapsed = remember { mutableStateMapOf<String, Boolean>() }
         var groupDialogFor by remember { mutableStateOf<String?>(null) }
+        var batchGroup by remember { mutableStateOf<List<String>?>(null) }
 
         LazyColumn(
             contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 130.dp),
@@ -154,11 +196,30 @@ fun WordbookScreen(
                             item = item,
                             onOpenWord = onOpenWord,
                             onDelete = onDelete,
-                            onLongPress = { groupDialogFor = item.word }
+                            onAssignGroup = { groupDialogFor = item.word },
+                            selectMode = selectMode,
+                            checked = item.word in selected,
+                            onToggleSelect = {
+                                selected = if (item.word in selected)
+                                    selected - item.word else selected + item.word
+                            }
                         )
                     }
                 }
             }
+        }
+
+        batchGroup?.let { words ->
+            GroupDialog(
+                word = "${words.size} 个词",
+                onDismiss = { batchGroup = null },
+                onConfirm = { g ->
+                    words.forEach { onSetGroup(it, g) }
+                    batchGroup = null
+                    selected = emptySet()
+                    selectMode = false
+                }
+            )
         }
 
         groupDialogFor?.let { w ->
@@ -244,7 +305,10 @@ private fun WordRow(
     item: SavedWord,
     onOpenWord: (String) -> Unit,
     onDelete: (String) -> Unit,
-    onLongPress: () -> Unit = {}
+    onAssignGroup: () -> Unit,
+    selectMode: Boolean = false,
+    checked: Boolean = false,
+    onToggleSelect: () -> Unit = {}
 ) {
     var expanded by remember(item.word) { mutableStateOf(false) }
     Card(
@@ -257,15 +321,24 @@ private fun WordRow(
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // 只有词本身可点开释义卡；点「详情 / 删除」或展开后的文字都不会误触
+                if (selectMode) {
+                    Text(
+                        if (checked) "☑" else "☐",
+                        fontSize = 18.sp,
+                        color = if (checked) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
                 Column(
                     Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
-                        .combinedClickable(
-                onClickLabel = "查看释义",
-                onLongClickLabel = "移动到分组",
-                onLongClick = onLongPress
-            ) { onOpenWord(item.word) }
+                        .clickable(
+                            onClickLabel = if (selectMode) "选中" else "查看释义"
+                        ) {
+                            if (selectMode) onToggleSelect() else onOpenWord(item.word)
+                        }
                         .padding(vertical = 2.dp, horizontal = 2.dp)
                 ) {
                     Text(item.word, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
@@ -277,10 +350,17 @@ private fun WordRow(
                         )
                     }
                 }
-                TextButton(onClick = { expanded = !expanded }) {
-                    Text(if (expanded) "收起" else "详情")
+                if (!selectMode) {
+                    TextButton(onClick = onAssignGroup) {
+                        Text("分组", fontSize = 12.sp)
+                    }
+                    TextButton(onClick = { expanded = !expanded }) {
+                        Text(if (expanded) "收起" else "详情", fontSize = 12.sp)
+                    }
+                    TextButton(onClick = { onDelete(item.word) }) {
+                        Text("删除", fontSize = 12.sp)
+                    }
                 }
-                TextButton(onClick = { onDelete(item.word) }) { Text("删除") }
             }
             val gloss = item.translation.lineSequence().firstOrNull { it.isNotBlank() }
                 ?: item.definition.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
