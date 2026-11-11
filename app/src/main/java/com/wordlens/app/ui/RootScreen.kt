@@ -70,6 +70,10 @@ fun RootScreen(
     val wordbook by vm.wordbook.collectAsState()
     val review by vm.review.collectAsState()
     val dictation by vm.dictation.collectAsState()
+    val groups by vm.groups.collectAsState()
+    LaunchedEffect(tab) {
+        if (tab == Tab.Wordbook) vm.refreshGroups()
+    }
     val settings by vm.settings.collectAsState()
     val dictStatus by vm.dictStatus.collectAsState()
     val dictWords by vm.dictWords.collectAsState()
@@ -224,6 +228,7 @@ fun RootScreen(
                         onSetGroup = { w, g -> vm.setWordGroup(w, g) },
                         onExportText = { exportLauncher.launch("wordlens-words.txt") },
                         onDeleteMany = { ws -> vm.deleteWords(ws) },
+                        groups = groups,
                         onReviewSelected = { ws ->
                             vm.startReviewSelected(ws)
                             reviewing = true

@@ -161,6 +161,12 @@ class AppDatabase(context: Context) :
         db.insertWithOnConflict("saved_word", null, values, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
+    /** 已经存在哪些自定义分组（空串不算） */
+    suspend fun customGroups(): List<String> = read { db ->
+        db.rawQuery("SELECT DISTINCT grp FROM saved_word WHERE grp<>'' ORDER BY grp", null)
+            .useList { it.getString(0) }
+    }
+
     /** 修改某个生词的分组（空串 = 回到按日期） */
     suspend fun setWordGroup(word: String, group: String): Unit = write { db ->
         db.execSQL("UPDATE saved_word SET grp=? WHERE word=?", arrayOf(group, word))

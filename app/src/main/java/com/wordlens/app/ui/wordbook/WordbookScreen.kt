@@ -53,17 +53,15 @@ fun WordbookScreen(
     onSetGroup: (String, String) -> Unit = { _, _ -> },
     onExportText: () -> Unit = {},
     onDeleteMany: (List<String>) -> Unit = {},
-    onReviewSelected: (List<String>) -> Unit = {}
+    onReviewSelected: (List<String>) -> Unit = {},
+    groups: List<String> = emptyList()
 ) {
     var query by remember { mutableStateOf(state.query) }
     var selectMode by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<String>()) }
     var groupDialogFor by remember { mutableStateOf<String?>(null) }
     var batchGroup by remember { mutableStateOf<List<String>?>(null) }
-    // 已有的自定义分组（按日期自动分的不算），用来在弹窗里直接点选
-    val customGroups = remember(state.items) {
-        state.items.map { it.group }.filter { it.isNotBlank() }.distinct().sorted()
-    }
+    val customGroups = groups
 
     Column(Modifier.fillMaxSize()) {
         Row(

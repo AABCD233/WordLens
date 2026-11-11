@@ -171,6 +171,13 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     // ---------------- 文档 / OCR ----------------
 
+    private val _groups = MutableStateFlow<List<String>>(emptyList())
+    val groups: StateFlow<List<String>> = _groups.asStateFlow()
+
+    fun refreshGroups() {
+        scope.launch { _groups.value = runCatching { app.database.customGroups() }.getOrDefault(emptyList()) }
+    }
+
     fun refreshLibrary() {
         scope.launch { _library.value = app.database.recentDocuments(60) }
     }
@@ -664,6 +671,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         scope.launch {
             app.database.setWordGroup(word, group)
             refreshWordbook()
+            refreshGroups()
             _messages.tryEmit(if (group.isBlank()) "已移出分组" else "已归到「$group」")
         }
     }
