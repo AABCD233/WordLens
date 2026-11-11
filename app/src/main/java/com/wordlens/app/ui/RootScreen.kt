@@ -71,9 +71,6 @@ fun RootScreen(
     val review by vm.review.collectAsState()
     val dictation by vm.dictation.collectAsState()
     val groups by vm.groups.collectAsState()
-    LaunchedEffect(tab) {
-        if (tab == Tab.Wordbook) vm.refreshGroups()
-    }
     val settings by vm.settings.collectAsState()
     val dictStatus by vm.dictStatus.collectAsState()
     val dictWords by vm.dictWords.collectAsState()
@@ -310,6 +307,7 @@ fun RootScreen(
     var showQuickInput by remember { mutableStateOf(false) }
     LaunchedEffect(tab) {
         if (tab == Tab.Dictation) vm.loadDictationPool()
+        if (tab == Tab.Wordbook) vm.refreshGroups()
     }
 
     LaunchedEffect(quickSearch) {
