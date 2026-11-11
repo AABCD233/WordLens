@@ -812,18 +812,13 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         keepAlive: Boolean = settings.value.reminderKeepAlive
     ) {
         updateSettings { it.copy(dailyReminder = on, reminderHour = hour, reminderKeepAlive = keepAlive) }
-        // 两种模式互斥：保活就停闹钟，不保活就停服务
         com.wordlens.app.reminder.ReminderService.stop(app.appContext)
-        com.wordlens.app.reminder.ReminderScheduler.cancel(app.appContext)
-        if (on) {
-            if (keepAlive) com.wordlens.app.reminder.ReminderService.start(app.appContext)
-            else com.wordlens.app.reminder.ReminderScheduler.schedule(app.appContext, hour)
-        }
+        if (on) com.wordlens.app.reminder.ReminderService.start(app.appContext)
         _messages.tryEmit(
             when {
                 !on -> "已关闭每日提醒"
-                keepAlive -> "已开启每日 ${hour}:00 提醒（常驻保活）"
-                else -> "已开启每日 ${hour}:00 提醒（系统闹钟，可能被省电策略挡）"
+                keepAlive -> "已开启每日 ${hour}:00 提醒（常驻通知保活）"
+                else -> "已开启每日 ${hour}:00 提醒（未保活，可能被系统清理）"
             }
         )
     }

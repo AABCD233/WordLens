@@ -407,7 +407,7 @@ fun SettingsScreen(
 
             ToggleRow(
                 "后台保活（常驻通知）",
-                "开：常驻一条低优先级通知，提醒最稳；关：改用系统闹钟，不占内存但可能被省电策略拦掉",
+                "开：常驻一条低优先级通知，到点提醒最稳；关：不占内存，但 App 被系统清掉后就不会提醒了",
                 settings.reminderKeepAlive
             ) { keep ->
                 onSetReminder(settings.dailyReminder, settings.reminderHour, keep)

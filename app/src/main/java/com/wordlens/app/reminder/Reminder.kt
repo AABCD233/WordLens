@@ -33,7 +33,8 @@ class ReminderService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startForeground(FOREGROUND_ID, buildOngoing())
+        val keep = (application as? WordLensApp)?.container?.settings?.state?.value?.reminderKeepAlive != false
+        if (keep) startForeground(FOREGROUND_ID, buildOngoing())
         scope.launch {
             while (true) {
                 val hour = (application as? WordLensApp)?.container?.settings
@@ -106,9 +107,14 @@ class ReminderService : Service() {
         private const val DAILY_CHANNEL = "wordlens_daily"
 
         fun start(context: Context) {
+            val keep = (context.applicationContext as? WordLensApp)
+                ?.container?.settings?.state?.value?.reminderKeepAlive != false
             val i = Intent(context, ReminderService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(i)
-            else context.startService(i)
+            if (keep && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                runCatching { context.startForegroundService(i) }
+            } else {
+                runCatching { context.startService(i) }
+            }
         }
 
         fun stop(context: Context) {
@@ -155,61 +161,12 @@ object ReminderNotifications {
     }
 }
 
-/** 不保活时用系统闹钟：不常驻内存，但部分 ROM 的省电策略会吞掉 */
-object ReminderScheduler {
-
-    private const val REQ = 2201
-
-    fun schedule(context: Context, hour: Int) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.cancel(pending(context))
-        val cal = java.util.Calendar.getInstance().apply {
-            set(java.util.Calendar.HOUR_OF_DAY, hour)
-            set(java.util.Calendar.MINUTE, 0)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }
-        var at = cal.timeInMillis
-        while (at <= System.currentTimeMillis()) at += 24L * 3600 * 1000
-        runCatching {
-            am.setInexactRepeating(
-                AlarmManager.RTC_WAKEUP, at, AlarmManager.INTERVAL_DAY, pending(context)
-            )
-        }
-    }
-
-    fun cancel(context: Context) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.cancel(pending(context))
-    }
-
-    private fun pending(context: Context): PendingIntent =
-        PendingIntent.getBroadcast(
-            context, REQ,
-            Intent(context, AlarmReceiver::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-}
-
-/** 闹钟到点：发通知即可，服务不启动 */
-class AlarmReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent?) {
-        val app = context.applicationContext as? WordLensApp ?: return
-        val settings = app.container.settings.state.value
-        if (!settings.dailyReminder || settings.reminderKeepAlive) return
-        ReminderNotifications.postDaily(context, app)
-        ReminderScheduler.schedule(context, settings.reminderHour)
-    }
-}
-
 /** 开机后把提醒拉起来：保活走服务，不保活走闹钟 */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
         val app = context.applicationContext as? WordLensApp ?: return
         val s = app.container.settings.state.value
-        if (!s.dailyReminder) return
-        if (s.reminderKeepAlive) ReminderService.start(context)
-        else ReminderScheduler.schedule(context, s.reminderHour)
+        if (s.dailyReminder) ReminderService.start(context)
     }
 }

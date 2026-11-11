@@ -45,9 +45,6 @@
             </intent-filter>
         </activity>
         <receiver
-            android:name=".reminder.AlarmReceiver"
-            android:exported="false" />
-        <receiver
             android:name=".reminder.BootReceiver"
             android:exported="true">
             <intent-filter>
