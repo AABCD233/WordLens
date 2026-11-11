@@ -258,7 +258,7 @@ fun RootScreen(
                         onClearHistory = vm::clearHistory,
                         onClearImages = vm::clearImages,
                         onCheckUpdate = vm::checkUpdate,
-                        onSetReminder = { on, hour -> vm.setDailyReminder(on, hour) },
+                        onSetReminder = { on, hour, keep -> vm.setDailyReminder(on, hour, keep) },
                         onToggleFloating = vm::toggleFloating,
                         onRequestOverlayPermission = {
                             val i = android.content.Intent(

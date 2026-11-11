@@ -66,7 +66,7 @@ fun SettingsScreen(
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
     onCheckUpdate: () -> Unit,
-    onSetReminder: (Boolean, Int) -> Unit,
+    onSetReminder: (Boolean, Int, Boolean) -> Unit,
     onToggleFloating: (Boolean) -> Boolean,
     onRequestOverlayPermission: () -> Unit,
     onClearHistory: () -> Unit,
@@ -384,7 +384,7 @@ fun SettingsScreen(
                 "每日复习提醒",
                 "到点发一条通知，提醒你过一遍到期的词（用系统闹钟，不常驻后台）",
                 settings.dailyReminder
-            ) { on -> onSetReminder(on, settings.reminderHour) }
+            ) { on -> onSetReminder(on, settings.reminderHour, settings.reminderKeepAlive) }
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                 listOf(8, 12, 20, 22).forEach { h ->
@@ -392,7 +392,9 @@ fun SettingsScreen(
                         color = if (settings.reminderHour == h) MaterialTheme.colorScheme.primaryContainer
                         else MaterialTheme.colorScheme.surfaceContainerHigh,
                         shape = RoundedCornerShape(50),
-                        modifier = Modifier.clickable { onSetReminder(settings.dailyReminder, h) }
+                        modifier = Modifier.clickable {
+                            onSetReminder(settings.dailyReminder, h, settings.reminderKeepAlive)
+                        }
                     ) {
                         Text(
                             "${h}:00",
@@ -401,6 +403,14 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+
+            ToggleRow(
+                "后台保活（常驻通知）",
+                "开：常驻一条低优先级通知，提醒最稳；关：改用系统闹钟，不占内存但可能被省电策略拦掉",
+                settings.reminderKeepAlive
+            ) { keep ->
+                onSetReminder(settings.dailyReminder, settings.reminderHour, keep)
             }
 
             Spacer(Modifier.height(10.dp))
@@ -425,6 +435,13 @@ fun SettingsScreen(
             PermRow("显示在其他应用上层", "悬浮查词", overlayOk) {
                 onRequestOverlayPermission()
             }
+            // 自启动没有标准 API，只能把用户送到对应设置页
+            AutoStartRow(
+                onOpen = {
+                    val ok = tryAutoStart(ctx)
+                    if (!ok) toAppDetails(ctx)
+                }
+            )
             Spacer(Modifier.height(4.dp))
             Hint("都会在使用对应功能时按需申请；这里只是方便你一次性检查。关掉权限不影响离线查词。")
         }
@@ -537,6 +554,59 @@ private fun SectionCard(
                 Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) { content() }
             }
         }
+    }
+}
+
+@Composable
+private fun AutoStartRow(onOpen: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("?", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text("自启动 / 后台运行", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "系统不允许读取这个状态，需要你自己确认：把它设成「允许」或「无限制」，否则划掉卡片后提醒会停",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        TextButton(onClick = onOpen) { Text("去设置", fontSize = 12.sp) }
+    }
+}
+
+/** 依次尝试各家 ROM 的自启动管理页，返回是否成功跳转 */
+private fun tryAutoStart(ctx: android.content.Context): Boolean {
+    val intents = listOf(
+        "com.miui.securitycenter/com.miui.permcenter.autostart.AutoStartManagementActivity",
+        "com.coloros.safecenter/.permission.startup.StartupAppListActivity",
+        "com.coloros.oppoguardelf/com.coloros.powermanager.fuelgaue.PowerUsageModelActivity",
+        "com.huawei.systemmanager/.startupmgr.ui.StartupNormalAppListActivity",
+        "com.vivo.permissionmanager/.activity.BgStartUpManagerActivity",
+        "com.samsung.android.lool/com.samsung.android.sm.ui.battery.BatteryActivity",
+        "com.oneplus.security/.chainlaunch.view.ChainLaunchAppListActivity"
+    )
+    for (c in intents) {
+        val i = android.content.Intent().apply {
+            setClassName(c.substringBefore("/"), c.substringAfter("/"))
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (runCatching { ctx.startActivity(i) }.isSuccess) return true
+    }
+    return false
+}
+
+/** 兜底：跳到本应用详情页（这里也能改电池策略） */
+private fun toAppDetails(ctx: android.content.Context) {
+    runCatching {
+        ctx.startActivity(
+            android.content.Intent(
+                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:" + ctx.packageName)
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 
