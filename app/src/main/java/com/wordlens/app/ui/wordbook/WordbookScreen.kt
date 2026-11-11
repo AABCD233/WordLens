@@ -52,7 +52,8 @@ fun WordbookScreen(
     onRefresh: () -> Unit,
     onSetGroup: (String, String) -> Unit = { _, _ -> },
     onExportText: () -> Unit = {},
-    onDeleteMany: (List<String>) -> Unit = {}
+    onDeleteMany: (List<String>) -> Unit = {},
+    onReviewSelected: (List<String>) -> Unit = {}
 ) {
     var query by remember { mutableStateOf(state.query) }
     var selectMode by remember { mutableStateOf(false) }
@@ -101,8 +102,12 @@ fun WordbookScreen(
                     }) { Text("全选", fontSize = 12.sp) }
                     TextButton(
                         enabled = selected.isNotEmpty(),
+                        onClick = { onReviewSelected(selected.toList()) }
+                    ) { Text("复习选中", fontSize = 12.sp) }
+                    TextButton(
+                        enabled = selected.isNotEmpty(),
                         onClick = { batchGroup = selected.toList() }
-                    ) { Text("批量分组", fontSize = 12.sp) }
+                    ) { Text("分组", fontSize = 12.sp) }
                     TextButton(
                         enabled = selected.isNotEmpty(),
                         onClick = {
@@ -127,8 +132,9 @@ fun WordbookScreen(
                 shape = RoundedCornerShape(12.dp)
             )
             Spacer(Modifier.width(8.dp))
-            Button(onClick = onStartReview, enabled = state.due > 0) {
-                Text(if (state.due > 0) "复习 ${state.due}" else "无到期")
+            // 不到期也能复习：随机抽 20 个过一遍
+            Button(onClick = onStartReview) {
+                Text(if (state.due > 0) "复习 ${state.due}" else "随机复习")
             }
         }
 

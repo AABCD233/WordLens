@@ -313,6 +313,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     fun closeReader() {
         _reader.value = ReaderUi()
         _word.value = WordUi()
+        scheduleOcrRelease()
     }
 
     fun renameDocument(id: Long, newTitle: String) {
@@ -404,6 +405,17 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
             val n = dir.listFiles()?.count { it.isFile } ?: 0
             dir.listFiles()?.forEach { runCatching { it.delete() } }
             _messages.tryEmit("已删除 $n 张本地照片（文字记录还在）")
+        }
+    }
+
+    /** 退出阅读页后 2 分钟没人再识别，就释放 ML Kit 识别器（它常驻 30–50MB） */
+    private var ocrIdleJob: kotlinx.coroutines.Job? = null
+
+    private fun scheduleOcrRelease() {
+        ocrIdleJob?.cancel()
+        ocrIdleJob = scope.launch {
+            kotlinx.coroutines.delay(120_000)
+            app.ocr.close()
         }
     }
 
@@ -574,12 +586,41 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     // ---------------- 复习 ----------------
 
+    /**
+     * 开始复习。没到期的词也能手动复习：从全部生词里随机抽 20 个，
+     * 只是不推进 SRS 间隔（认/忘按钮照常可用）。
+     */
+    /** 自选单词复习：多选里勾出来的词直接进队列 */
+    fun startReviewSelected(words: List<String>) {
+        if (words.isEmpty()) return
+        scope.launch {
+            val all = app.database.allSavedWords().filter { it.word in words }
+            if (all.isEmpty()) {
+                _messages.tryEmit("这些词已经不在生词本里了")
+                return@launch
+            }
+            _review.value = ReviewUi(
+                active = true,
+                queue = all.shuffled(),
+                index = 0,
+                revealed = false
+            )
+        }
+    }
+
     fun startReview() {
         scope.launch {
-            val queue = app.database.dueWords(System.currentTimeMillis(), 40)
-            if (queue.isEmpty()) {
-                _messages.tryEmit("今天没有到期的词，去拍照读一段吧")
-                return@launch
+            val due = app.database.dueWords(System.currentTimeMillis(), 40)
+            val queue = if (due.isNotEmpty()) {
+                due
+            } else {
+                val all = app.database.allSavedWords()
+                if (all.isEmpty()) {
+                    _messages.tryEmit("生词本还是空的，先拍一页把词加进来")
+                    return@launch
+                }
+                _messages.tryEmit("今天没有到期的词，随机抽 ${minOf(20, all.size)} 个复习")
+                all.shuffled().take(20)
             }
             _review.value = ReviewUi(
                 active = true,
@@ -804,23 +845,6 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         if (on) com.wordlens.app.floating.FloatingService.start(app.appContext)
         else com.wordlens.app.floating.FloatingService.stop(app.appContext)
         return true
-    }
-
-    fun setDailyReminder(
-        on: Boolean,
-        hour: Int = settings.value.reminderHour,
-        keepAlive: Boolean = settings.value.reminderKeepAlive
-    ) {
-        updateSettings { it.copy(dailyReminder = on, reminderHour = hour, reminderKeepAlive = keepAlive) }
-        com.wordlens.app.reminder.ReminderService.stop(app.appContext)
-        if (on) com.wordlens.app.reminder.ReminderService.start(app.appContext)
-        _messages.tryEmit(
-            when {
-                !on -> "已关闭每日提醒"
-                keepAlive -> "已开启每日 ${hour}:00 提醒（常驻通知保活）"
-                else -> "已开启每日 ${hour}:00 提醒（未保活，可能被系统清理）"
-            }
-        )
     }
 
     fun acceptDisclaimer() {

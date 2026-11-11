@@ -33,6 +33,17 @@ class OcrEngine(private val context: Context) {
     }
 
     /**
+     * 释放识别器。ML Kit 的识别器一创建就常驻 30–50MB，
+     * 退出阅读页后一段时间没人用就关掉，下次识别时再重建（约 1 秒）。
+     */
+    fun close() {
+        synchronized(this) {
+            runCatching { recognizer?.close() }
+            recognizer = null
+        }
+    }
+
+    /**
      * @param source 照片 URI（相机输出的本地文件，或相册 Picker 返回的 content://）
      */
     suspend fun recognize(source: Uri): OcrResult = withContext(Dispatchers.IO) {

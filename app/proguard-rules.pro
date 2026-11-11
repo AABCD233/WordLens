@@ -1,7 +1,21 @@
-# 当前 release 也没开混淆，这里只留必要规则，方便以后自己打开 minify。
-# ML Kit 通过反射创建识别器
+# ---- ML Kit 文字识别：内部用了反射和 JNI，必须整体保留 ----
 -keep class com.google.mlkit.** { *; }
--keep class com.google.android.gms.internal.mlkit_** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text** { *; }
+-keep class com.google.android.gms.internal.mlkit_common** { *; }
 -dontwarn com.google.mlkit.**
+-dontwarn com.google.android.gms.**
 
-# SQLite 资产词典通过列名取值，不依赖反射，无需额外规则
+# ---- 我们自己的数据类（JSON 编解码按字段名拼字符串，避免被优化掉） ----
+-keep class com.wordlens.app.data.model.** { *; }
+-keep class com.wordlens.app.data.db.** { *; }
+
+# ---- 关掉日志（release 更省） ----
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+}
+
+# 保留行号，崩溃栈还能看
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

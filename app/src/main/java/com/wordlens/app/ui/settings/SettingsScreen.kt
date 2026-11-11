@@ -66,7 +66,6 @@ fun SettingsScreen(
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
     onCheckUpdate: () -> Unit,
-    onSetReminder: (Boolean, Int, Boolean) -> Unit,
     onToggleFloating: (Boolean) -> Boolean,
     onRequestOverlayPermission: () -> Unit,
     onClearHistory: () -> Unit,
@@ -370,51 +369,16 @@ fun SettingsScreen(
         }
 
         // ---------- 关于 ----------
-        SectionCard(title = "提醒与权限", subtitle = "每日复习提醒 · 权限自检", defaultExpanded = false) {
+        SectionCard(title = "权限自检", subtitle = "相机 · 通知 · 悬浮窗 · 自启动", defaultExpanded = false) {
             val ctx = androidx.compose.ui.platform.LocalContext.current
             val permTick = remember { mutableStateOf(0) }
             val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
             ) { permTick.value++ }
             val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                androidx.activity.result.ActivityResultContracts.RequestPermission()
             ) { permTick.value++ }
 
-            ToggleRow(
-                "每日复习提醒",
-                "到点发一条通知，提醒你过一遍到期的词（用系统闹钟，不常驻后台）",
-                settings.dailyReminder
-            ) { on -> onSetReminder(on, settings.reminderHour, settings.reminderKeepAlive) }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                listOf(8, 12, 20, 22).forEach { h ->
-                    Surface(
-                        color = if (settings.reminderHour == h) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier.clickable {
-                            onSetReminder(settings.dailyReminder, h, settings.reminderKeepAlive)
-                        }
-                    ) {
-                        Text(
-                            "${h}:00",
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-
-            ToggleRow(
-                "后台保活（常驻通知）",
-                "开：常驻一条低优先级通知，到点提醒最稳；关：不占内存，但 App 被系统清掉后就不会提醒了",
-                settings.reminderKeepAlive
-            ) { keep ->
-                onSetReminder(settings.dailyReminder, settings.reminderHour, keep)
-            }
-
-            Spacer(Modifier.height(10.dp))
-            SubTitle("权限自检")
             val camOk = androidx.core.content.ContextCompat.checkSelfPermission(
                 ctx, android.Manifest.permission.CAMERA
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED

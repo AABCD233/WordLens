@@ -223,7 +223,11 @@ fun RootScreen(
                         onRefresh = { vm.refreshWordbook() },
                         onSetGroup = { w, g -> vm.setWordGroup(w, g) },
                         onExportText = { exportLauncher.launch("wordlens-words.txt") },
-                        onDeleteMany = { ws -> vm.deleteWords(ws) }
+                        onDeleteMany = { ws -> vm.deleteWords(ws) },
+                        onReviewSelected = { ws ->
+                            vm.startReviewSelected(ws)
+                            reviewing = true
+                        }
                     )
 
                     Tab.Dictation -> DictationScreen(
@@ -258,7 +262,6 @@ fun RootScreen(
                         onClearHistory = vm::clearHistory,
                         onClearImages = vm::clearImages,
                         onCheckUpdate = vm::checkUpdate,
-                        onSetReminder = { on, hour, keep -> vm.setDailyReminder(on, hour, keep) },
                         onToggleFloating = vm::toggleFloating,
                         onRequestOverlayPermission = {
                             val i = android.content.Intent(

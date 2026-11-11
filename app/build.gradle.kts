@@ -12,8 +12,8 @@ android {
         applicationId = "com.wordlens.app"
         minSdk = 26          // Android 8.0
         targetSdk = 36
-        versionCode = 24
-        versionName = "2.2.0"
+        versionCode = 25
+        versionName = "2.3.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -44,8 +44,9 @@ android {
             signingConfig = signingConfigs.getByName("wordlens")
         }
         release {
-            // 默认不混淆：免去签名/规则调试成本。要瘦身就自己打开并补 proguard 规则
-            isMinifyEnabled = false
+            // 混淆 + 资源裁剪：debug 包带整套调试符号，体积大 30% 左右
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("wordlens")
         }
