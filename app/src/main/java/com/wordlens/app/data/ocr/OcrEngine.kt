@@ -56,10 +56,7 @@ class OcrEngine(private val context: Context) {
         return text.toOcrResult(image.width, image.height)
     }
 
-    fun close() {
-        recognizer?.close()
-        recognizer = null
-    }
+
 }
 
 private suspend fun <T> Task<T>.awaitOrThrow(): T = suspendCancellableCoroutine { cont ->

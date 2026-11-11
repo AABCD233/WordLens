@@ -376,7 +376,7 @@ fun SettingsScreen(
                 androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
             ) { permTick.value++ }
             val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-                androidx.activity.result.ActivityResultContracts.RequestPermission()
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
             ) { permTick.value++ }
 
             val camOk = androidx.core.content.ContextCompat.checkSelfPermission(
