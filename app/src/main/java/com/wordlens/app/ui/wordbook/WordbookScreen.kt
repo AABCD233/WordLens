@@ -60,6 +60,10 @@ fun WordbookScreen(
     var selected by remember { mutableStateOf(setOf<String>()) }
     var groupDialogFor by remember { mutableStateOf<String?>(null) }
     var batchGroup by remember { mutableStateOf<List<String>?>(null) }
+    // 已有的自定义分组（按日期自动分的不算），用来在弹窗里直接点选
+    val customGroups = remember(state.items) {
+        state.items.map { it.group }.filter { it.isNotBlank() }.distinct().sorted()
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -218,6 +222,7 @@ fun WordbookScreen(
         batchGroup?.let { words ->
             GroupDialog(
                 word = "${words.size} 个词",
+                groups = customGroups,
                 onDismiss = { batchGroup = null },
                 onConfirm = { g ->
                     words.forEach { onSetGroup(it, g) }
@@ -231,6 +236,7 @@ fun WordbookScreen(
         groupDialogFor?.let { w ->
             GroupDialog(
                 word = w,
+                groups = customGroups,
                 onDismiss = { groupDialogFor = null },
                 onConfirm = { g ->
                     onSetGroup(w, g)
@@ -271,26 +277,83 @@ private fun GroupHeader(name: String, count: Int, collapsed: Boolean, onToggle: 
 }
 
 @Composable
-private fun GroupDialog(word: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+private fun GroupDialog(
+    word: String,
+    groups: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
     var text by remember { mutableStateOf("") }
+    var creating by remember { mutableStateOf(groups.isEmpty()) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("把 $word 放到…") },
         text = {
             Column {
-                Text(
-                    "填一个分组名，比如「四级」「课本第 3 单元」；留空就按加入日期分组。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    singleLine = true,
-                    label = { Text("分组名", fontSize = 12.sp) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (groups.isNotEmpty() && !creating) {
+                    Text(
+                        "点一个组直接移过去",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        groups.forEach { g ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.clickable { onConfirm(g) }
+                            ) {
+                                Text(
+                                    g,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "＋ 新建分组",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.clickable { creating = true }
+                        )
+                        Text(
+                            "按日期（清除分组）",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clickable { onConfirm("") }
+                        )
+                    }
+                } else {
+                    Text(
+                        "填一个分组名，比如「四级」「课本第 3 单元」；留空就按加入日期分组。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = true,
+                        label = { Text("新分组名", fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (groups.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "返回已有分组",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.clickable { creating = false }
+                        )
+                    }
+                }
             }
         },
         confirmButton = { TextButton(onClick = { onConfirm(text.trim()) }) { Text("确定") } },
