@@ -39,12 +39,40 @@ class MorphStore(private val context: Context) {
                 if (it.moveToFirst()) it.getString(0) else w
             }
         }.getOrDefault(w)
-        runCatching {
+        val raw = runCatching {
             d.rawQuery(
-                "SELECT word FROM family WHERE lemma=? AND inflection=0 AND word<>? ORDER BY length(word) LIMIT 12",
+                "SELECT word, inflection FROM family WHERE lemma=? AND word<>? ORDER BY length(word) LIMIT 40",
                 arrayOf(lemma, w)
-            ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
+            ).use { c ->
+                buildList {
+                    while (c.moveToNext()) add(c.getString(0) to (c.getInt(1) == 1))
+                }
+            }
         }.getOrDefault(emptyList())
+
+        val family = (raw.map { it.first } + lemma).toSet()
+        // 站点对部分屈折形式没打标记（happier/happiest），这里再按后缀+词族兜一层
+        raw.asSequence()
+            .filter { (form, flagged) -> !flagged && !isInflection(form, family) }
+            .map { it.first }
+            .take(12)
+            .toList()
+    }
+
+    /** 去掉屈折后缀后还在同一词族里，就当它是屈折变化而不是派生词 */
+    private fun isInflection(form: String, family: Set<String>): Boolean {
+        for (suf in listOf("iest", "ier", "est", "ing", "ed", "es", "er", "s", "d")) {
+            if (!form.endsWith(suf) || form.length <= suf.length + 2) continue
+            val base = form.dropLast(suf.length)
+            if (base in family) return true
+            // 双写尾字母：planned -> plan，bigger -> big
+            if (base.length > 2 && base[base.length - 1] == base[base.length - 2]) {
+                if (base.dropLast(1) in family) return true
+            }
+            // 去 e 加 ing/er：making -> make
+            if ((base + "e") in family) return true
+        }
+        return false
     }
 
     /**
@@ -76,11 +104,13 @@ class MorphStore(private val context: Context) {
             }
             d.rawQuery(
                 "SELECT root, zh FROM root WHERE length(root)>=4 AND ? LIKE root || '%' " +
+                    "AND length(root) <= length(?)-2 " +
                     "ORDER BY length(root) DESC, freq DESC LIMIT 2",
-                arrayOf(w)
+                arrayOf(w, w)
             ).use { c ->
                 while (c.moveToNext()) {
                     val zh = c.getString(1).ifBlank { "" }
+                    if (zh.isBlank()) continue
                     out.add(c.getString(0) + "-" to "词根 · $zh")
                 }
             }
