@@ -66,7 +66,6 @@ class MorphStore(private val context: Context) {
             .toList()
     }
 
-    @Volatile
     private data class RootRow(val root: String, val zh: String, val freq: Int, val kind: String)
 
     private var rootCache: List<RootRow>? = null
