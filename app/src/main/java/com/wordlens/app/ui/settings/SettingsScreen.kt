@@ -62,6 +62,7 @@ fun SettingsScreen(
     activePackId: String,
     packBusy: String?,
     onInstallPack: (String, String) -> Unit,
+    onImportPackFile: (android.net.Uri, String) -> Unit,
     onInstallOfficial: () -> Unit,
     onActivatePack: (DictPack) -> Unit,
     onDeletePack: (DictPack) -> Unit,
