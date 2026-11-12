@@ -276,6 +276,7 @@ fun RootScreen(
                         activePackId = settings.activePackId,
                         packBusy = packBusy,
                         onInstallPack = vm::installPack,
+                        onImportPackFile = { uri, name -> vm.importPackFromUri(uri, name) },
                         onInstallOfficial = vm::installOfficialPack,
                         onActivatePack = vm::activatePack,
                         onDeletePack = vm::deletePack,

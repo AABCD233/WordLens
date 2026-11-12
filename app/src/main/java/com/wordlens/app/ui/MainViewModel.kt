@@ -154,6 +154,9 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private val _packBusy = MutableStateFlow<String?>(null)
     val packBusy: StateFlow<String?> = _packBusy.asStateFlow()
 
+    private val _packProgress = MutableStateFlow(0L)
+    val packProgress: StateFlow<Long> = _packProgress.asStateFlow()
+
     init {
         scope.launch {
             // 上次选的扩展包还在就继续用它
@@ -988,6 +991,27 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         scope.launch {
             _packs.value = app.dictPacks.installed()
             _dictWords.value = app.dictionary.dictWordCount()
+        }
+    }
+
+    /** 从本地文件导入词典包（.db / .db.gz，需符合本项目表结构） */
+    fun importPackFromUri(uri: android.net.Uri, name: String) {
+        if (_packBusy.value != null) return
+        _packBusy.value = "本地导入"
+        scope.launch {
+            try {
+                app.dictPacks.installFromUri(uri, name) { done ->
+                    _packProgress.value = done
+                }
+                // 装完刷一下词数和列表
+                refreshPacks()
+                _messages.tryEmit("已导入并切换到《$name》")
+            } catch (t: Throwable) {
+                _messages.tryEmit("导入失败：${t.message ?: "文件格式不对"}")
+            } finally {
+                _packBusy.value = null
+                _packProgress.value = 0
+            }
         }
     }
 

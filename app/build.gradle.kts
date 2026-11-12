@@ -12,8 +12,8 @@ android {
         applicationId = "com.wordlens.app"
         minSdk = 26          // Android 8.0
         targetSdk = 36
-        versionCode = 26
-        versionName = "2.3.1"
+        versionCode = 27
+        versionName = "2.4.0"
         vectorDrawables { useSupportLibrary = true }
     }
 

@@ -185,6 +185,34 @@ fun SettingsScreen(
             ) { checked -> onUpdate { it.copy(githubAccel = checked) } }
 
             Spacer(Modifier.height(10.dp))
+            val ctxImport = androidx.compose.ui.platform.LocalContext.current
+            val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) {
+                    // 从文件名里取一个像样的名字
+                    val fileName = runCatching {
+                        ctxImport.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (i >= 0 && c.moveToFirst()) c.getString(i) else null
+                        }
+                    }.getOrNull()
+                    val name = (fileName ?: "本地词典")
+                        .removeSuffix(".db.gz").removeSuffix(".gz").removeSuffix(".db")
+                        .take(40)
+                    onImportPackFile(uri, name)
+                }
+            }
+            OutlinedButton(
+                onClick = {
+                    importLauncher.launch(arrayOf("*/*"))
+                },
+                enabled = packBusy == null,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("从文件导入词典（.db / .db.gz）") }
+            Hint("文件必须符合本项目的表结构（word / phonetic / translation 等列），否则会提示「不像词典包」。")
+
+            Spacer(Modifier.height(10.dp))
             SubTitle("或者填自己的词典包地址")
             val url = remember { mutableStateOf("") }
             OutlinedTextField(

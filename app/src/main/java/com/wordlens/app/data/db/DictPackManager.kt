@@ -100,6 +100,63 @@ class DictPackManager(
         throw last ?: IllegalStateException("没有可用的下载地址")
     }
 
+    /** 从本地文件（SAF 拿到的 Uri）导入词典包，支持 .db 和 .db.gz */
+    suspend fun installFromUri(
+        uri: android.net.Uri,
+        name: String,
+        onProgress: (Long) -> Unit = {}
+    ): DictPack = withContext(Dispatchers.IO) {
+        dir.mkdirs()
+        val safe = (name.ifBlank { "本地词典" })
+            .replace(Regex("[^0-9A-Za-z\\u4e00-\\u9fa5_-]"), "_")
+            .take(40)
+        val tmp = File(dir, "$safe.part")
+        val target = uniqueTarget(safe)
+        try {
+            val raw = appContext.contentResolver.openInputStream(uri)
+                ?: error("读不到这个文件")
+            raw.use { input ->
+                val head = ByteArray(2)
+                var headLen = 0
+                while (headLen < 2) {
+                    val n = input.read(head, headLen, 2 - headLen)
+                    if (n <= 0) break
+                    headLen += n
+                }
+                val isGzip = headLen == 2 && head[0] == 0x1f.toByte() && head[1] == 0x8b.toByte()
+                val merged = java.io.SequenceInputStream(head.inputStream(), input)
+                val src = if (isGzip) GZIPInputStream(merged) else merged
+                var total = 0L
+                FileOutputStream(tmp).use { out ->
+                    val buf = ByteArray(128 * 1024)
+                    while (true) {
+                        val n = src.read(buf)
+                        if (n <= 0) break
+                        out.write(buf, 0, n)
+                        total += n
+                        if (total % (2L * 1024 * 1024) < buf.size) onProgress(total)
+                    }
+                }
+                onProgress(total)
+            }
+            checkSqlite(tmp)
+            if (!tmp.renameTo(target)) {
+                tmp.copyTo(target, overwrite = true)
+                tmp.delete()
+            }
+            val words = countWords(target)
+            if (words <= 0) {
+                target.delete()
+                error("这个文件不像词典包（里面没有 dict 表，或者列名不对）")
+            }
+            settings.update { it.copy(activePackId = target.name.removeSuffix(".db")) }
+            store.usePack(target)
+            DictPack(target.name.removeSuffix(".db"), safe, target, words, false)
+        } finally {
+            tmp.delete()
+        }
+    }
+
     private suspend fun installOne(
         url: String,
         name: String,
