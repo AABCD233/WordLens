@@ -119,13 +119,14 @@ class MorphStore(private val context: Context) {
                 .thenByDescending { it.second.first }
                 .thenByDescending { it.second.second }
                 .thenByDescending { it.second.third.freq }
-        ).filterIndexed { _, pair ->
-            // 去掉「是另一个候选的前缀」的冗余项：spect 与 spectr 只留 spect
-            noneOf { other -> other.second.third !== pair.second.third &&
-                pair.second.third.root.startsWith(other.second.third.root) }
-        }.take(2).map {
-            Triple(it.second.third.root, it.second.third.zh, it.first)
-        }
+        ).take(6).map { Triple(it.second.third.root, it.second.third.zh, it.first) }
+            .let { cand ->
+                // 去掉「是另一个候选前缀」的冗余项：spect 与 spectr 只留较短的 spect
+                cand.filter { c ->
+                    cand.none { o -> o.first != c.first && c.first.startsWith(o.first) }
+                }
+            }
+            .take(2)
     }
 
     /**
