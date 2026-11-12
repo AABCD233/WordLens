@@ -171,8 +171,79 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     // ---------------- 文档 / OCR ----------------
 
+    /** 检查到的新版本（非空时弹窗询问） */
+    private val _update = MutableStateFlow<com.wordlens.app.data.UpdateChecker.Latest?>(null)
+    val update: StateFlow<com.wordlens.app.data.UpdateChecker.Latest?> = _update.asStateFlow()
+
+    private val _downloading = MutableStateFlow(false)
+    val downloading: StateFlow<Boolean> = _downloading.asStateFlow()
+
+    fun dismissUpdate() { _update.value = null }
+
+    /** 下载并交给系统安装器；装完在下次启动时清掉安装包 */
+    fun installUpdate(latest: com.wordlens.app.data.UpdateChecker.Latest, useAccel: Boolean) {
+        val apkUrl = latest.apkUrl ?: run {
+            _messages.tryEmit("这个版本没有安装包附件，去 Releases 页面手动下载")
+            return
+        }
+        if (_downloading.value) return
+        _downloading.value = true
+        updateSettings { it.copy(githubAccel = useAccel) }
+        scope.launch {
+            val dir = java.io.File(app.appContext.cacheDir, "update")
+            dir.mkdirs()
+            val dest = java.io.File(dir, "wordlens-${latest.tag}.apk")
+            _messages.tryEmit("开始下载 ${latest.tag}…")
+            val result = app.updates.download(apkUrl, dest) { mb ->
+                if (mb % 10 == 0L) _messages.tryEmit("已下载 $mb MB")
+            }
+            _downloading.value = false
+            result.onSuccess { file ->
+                _update.value = null
+                launchInstaller(file)
+            }.onFailure {
+                _messages.tryEmit("下载失败：${it.message ?: "网络不通"}")
+            }
+        }
+    }
+
+    private fun launchInstaller(file: java.io.File) {
+        runCatching {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                app.appContext,
+                app.appContext.packageName + ".fileprovider",
+                file
+            )
+            val i = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            app.appContext.startActivity(i)
+            _messages.tryEmit("已交给系统安装器")
+        }.onFailure {
+            _messages.tryEmit("打开安装器失败：${it.message}")
+        }
+    }
+
+    /** 清掉上次下载的安装包（安装完成后没用了） */
+    fun clearUpdateCache() {
+        runCatching { java.io.File(app.appContext.cacheDir, "update").deleteRecursively() }
+    }
+
+    /** 当前生词本里的词（用于词卡判断"已加入"） */
+    private val _savedKeys = MutableStateFlow<Set<String>>(emptySet())
+    val savedKeys: StateFlow<Set<String>> = _savedKeys.asStateFlow()
+
     private val _groups = MutableStateFlow<List<String>>(emptyList())
     val groups: StateFlow<List<String>> = _groups.asStateFlow()
+
+    fun refreshSavedKeys() {
+        scope.launch {
+            _savedKeys.value = runCatching { app.database.allWordNames().map { it.lowercase() }.toSet() }
+                .getOrDefault(emptySet())
+        }
+    }
 
     fun refreshGroups() {
         scope.launch { _groups.value = runCatching { app.database.customGroups() }.getOrDefault(emptyList()) }
@@ -564,6 +635,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
                 )
             )
             refreshWordbook()
+            refreshSavedKeys()
             _messages.tryEmit("已加入生词本：$word")
         }
     }
@@ -587,6 +659,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         scope.launch {
             app.database.deleteWord(word)
             refreshWordbook()
+            refreshSavedKeys()
             _messages.tryEmit("已移出生词本：$word")
         }
     }
@@ -666,6 +739,20 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     }
 
     // ---------------- 生词本分组 / 导出 / 批量删除 ----------------
+
+    /** 批量移动分组：只弹一次提示 */
+    fun setWordGroupBatch(words: List<String>, group: String) {
+        if (words.isEmpty()) return
+        scope.launch {
+            words.forEach { app.database.setWordGroup(it, group) }
+            refreshWordbook()
+            refreshGroups()
+            _messages.tryEmit(
+                if (group.isBlank()) "已把 ${words.size} 个词移出分组"
+                else "已把 ${words.size} 个词归到「$group」"
+            )
+        }
+    }
 
     fun setWordGroup(word: String, group: String) {
         scope.launch {
@@ -831,7 +918,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
             val r = app.updates.check()
             r.onSuccess { latest ->
                 if (latest.newer) {
-                    _messages.tryEmit("发现新版本 ${latest.tag}，可在 Releases 下载")
+                    _update.value = latest
                     _lastReleaseUrl = latest.url
                 } else {
                     _messages.tryEmit("已是最新版本（${com.wordlens.app.BuildConfig.VERSION_NAME}）")

@@ -47,6 +47,7 @@ import com.wordlens.app.ui.reader.WordSheet
 import com.wordlens.app.ui.search.SearchScreen
 import com.wordlens.app.ui.capture.CaptureScreen
 import com.wordlens.app.ui.dictation.DictationScreen
+import com.wordlens.app.ui.UpdateDialog
 import com.wordlens.app.ui.reader.ReaderScreen
 import com.wordlens.app.ui.settings.SettingsScreen
 import com.wordlens.app.ui.wordbook.ReviewScreen
@@ -71,6 +72,22 @@ fun RootScreen(
     val review by vm.review.collectAsState()
     val dictation by vm.dictation.collectAsState()
     val groups by vm.groups.collectAsState()
+    val savedKeys by vm.savedKeys.collectAsState()
+    val updateInfo by vm.update.collectAsState()
+    LaunchedEffect(Unit) {
+        vm.refreshSavedKeys()
+        // 上次下载的安装包已经没用了，启动时清掉
+        vm.clearUpdateCache()
+    }
+
+    updateInfo?.let { info ->
+        UpdateDialog(
+            tag = info.tag,
+            accel = settings.githubAccel,
+            onDismiss = vm::dismissUpdate,
+            onConfirm = { accel -> vm.installUpdate(info, accel) }
+        )
+    }
     val settings by vm.settings.collectAsState()
     val dictStatus by vm.dictStatus.collectAsState()
     val dictWords by vm.dictWords.collectAsState()
@@ -338,6 +355,7 @@ fun RootScreen(
             onDismiss = vm::dismissWord,
             onSpeak = vm::speak,
             onSave = vm::saveCurrentWord,
+            alreadySaved = word.query.isNotBlank() && word.query.lowercase() in savedKeys,
             onAiExplain = { kind -> vm.requestAiExplain(kind) },
             onTranslateExample = { example -> vm.translateExample(example) },
             onEditNote = { noteWord = word.definition?.lemma?.ifBlank { null } ?: word.query },

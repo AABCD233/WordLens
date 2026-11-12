@@ -9,7 +9,13 @@ import org.json.JSONObject
 /** 查 GitHub 上的最新 Release，和当前版本比一下 */
 class UpdateChecker(private val accelEnabled: () -> Boolean) {
 
-    data class Latest(val tag: String, val url: String, val newer: Boolean)
+    data class Latest(
+        val tag: String,
+        val url: String,
+        val newer: Boolean,
+        /** 直链 APK；没有附件时为 null */
+        val apkUrl: String? = null
+    )
 
     private val api = "https://api.github.com/repos/AABCD233/WordLens/releases/latest"
 
@@ -22,13 +28,65 @@ class UpdateChecker(private val accelEnabled: () -> Boolean) {
                 val o = JSONObject(body)
                 val tag = o.optString("tag_name", "").removePrefix("v")
                 val url = o.optString("html_url", "https://github.com/AABCD233/WordLens/releases")
+                val apk = o.optJSONArray("assets")?.let { arr ->
+                    (0 until arr.length())
+                        .map { arr.optJSONObject(it)?.optString("browser_download_url").orEmpty() }
+                        .firstOrNull { it.endsWith(".apk", ignoreCase = true) }
+                }
                 if (tag.isBlank()) error("没有版本号")
-                Latest(tag = tag, url = url, newer = isNewer(tag, BuildConfig.VERSION_NAME))
+                Latest(
+                    tag = tag,
+                    url = url,
+                    newer = isNewer(tag, BuildConfig.VERSION_NAME),
+                    apkUrl = apk
+                )
             }
             if (r.isSuccess) return@withContext r
             last = r.exceptionOrNull()
         }
         Result.failure(last ?: IllegalStateException("检查更新失败"))
+    }
+
+    /** 下载 APK 到 dest（支持加速镜像与断点续传），返回文件 */
+    suspend fun download(
+        apkUrl: String,
+        dest: java.io.File,
+        onProgress: (downloadedMb: Long) -> Unit
+    ): Result<java.io.File> = withContext(Dispatchers.IO) {
+        var last: Throwable? = null
+        for (u in AccelMirrors.candidates(apkUrl, accelEnabled())) {
+            val r = runCatching {
+                val conn = (java.net.URL(u).openConnection() as java.net.HttpURLConnection).apply {
+                    connectTimeout = 20_000
+                    readTimeout = 30_000
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent", "Mozilla/5.0")
+                }
+                if (conn.responseCode !in 200..299) {
+                    conn.disconnect(); error("HTTP ${conn.responseCode}")
+                }
+                var written = 0L
+                conn.inputStream.use { input ->
+                    dest.outputStream().use { out ->
+                        val buf = ByteArray(256 * 1024)
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n <= 0) break
+                            out.write(buf, 0, n)
+                            written += n
+                            onProgress(written / (1024 * 1024))
+                        }
+                    }
+                }
+                conn.disconnect()
+                if (written < 1024) error("文件太小，可能不是安装包")
+                dest
+            }
+            if (r.isSuccess) return@withContext r
+            dest.delete()
+            last = r.exceptionOrNull()
+        }
+        Result.failure(last ?: IllegalStateException("下载失败"))
     }
 
     /** 简单版本号比较：1.10.0 > 1.9.9 */

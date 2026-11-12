@@ -62,6 +62,7 @@ fun WordSheet(
     onDismiss: () -> Unit,
     onSpeak: (String) -> Unit,
     onSave: () -> Unit,
+    alreadySaved: Boolean = false,
     onAiExplain: (String) -> Unit,
     onTranslateExample: (String) -> Unit,
     onEditNote: () -> Unit,
@@ -417,7 +418,11 @@ private fun DefinitionBody(
     HorizontalDivider()
     Spacer(Modifier.height(10.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Button(onClick = onSave, modifier = Modifier.weight(1f)) { Text("加入生词本") }
+        Button(
+            onClick = onSave,
+            enabled = !alreadySaved,
+            modifier = Modifier.weight(1f)
+        ) { Text(if (alreadySaved) "已加入生词本" else "加入生词本") }
         Spacer(Modifier.width(10.dp))
         OutlinedButton(onClick = {
             onCopy(

@@ -248,3 +248,46 @@ private fun Section(t: String) {
 private fun Body(t: String) {
     Text(t, style = MaterialTheme.typography.bodySmall, lineHeight = 20.sp)
 }
+
+
+/** 发现新版本：问用户要不要下载，顺便让他选走不走加速 */
+@Composable
+fun UpdateDialog(
+    tag: String,
+    accel: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (Boolean) -> Unit
+) {
+    var useAccel by remember { mutableStateOf(accel) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("发现新版本 $tag") },
+        text = {
+            Column {
+                Text(
+                    "下载安装包后会自动打开系统安装器。安装包装完就没用了，App 下次启动会自动删掉。",
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 20.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Switch(
+                        checked = useAccel,
+                        onCheckedChange = { useAccel = it }
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("使用 GitHub 加速下载", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "国内直连可能很慢，走镜像更稳",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(useAccel) }) { Text("下载并安装") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
+}
