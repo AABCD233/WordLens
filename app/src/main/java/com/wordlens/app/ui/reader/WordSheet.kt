@@ -389,26 +389,42 @@ private fun DefinitionBody(
     if (word.morphology.isNotEmpty()) {
         Spacer(Modifier.height(10.dp))
         SectionTitle("词根词缀")
-        word.morphology.forEach { (form, meaning) ->
-            Row(Modifier.padding(vertical = 2.dp)) {
+        word.morphology.forEach { hint ->
+            Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    form,
+                    hint.form,
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    color = if (hint.confident) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    meaning,
+                    hint.meaning,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (!hint.confident) {
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            "推测",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                        )
+                    }
+                }
             }
         }
-        Text(
-            "按拼写匹配，仅供参考（同形不同源的词可能不准）",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
+        if (word.morphology.any { !it.confident }) {
+            Text(
+                "标「推测」的是按拼写猜的，同形不同源时可能不准",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
     }
 
     // 同族派生词：点一下直接查它

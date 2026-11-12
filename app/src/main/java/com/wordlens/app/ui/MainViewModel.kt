@@ -64,8 +64,8 @@ data class WordUi(
     val aiKind: String = "",
     /** 同词族派生词（离线，来自 morph.db） */
     val derivatives: List<String> = emptyList(),
-    /** 词缀/词根提示：前缀/后缀/词根 + 中文含义 */
-    val morphology: List<Pair<String, String>> = emptyList(),
+    /** 词缀/词根提示：前缀/后缀/词根 + 中文含义 + 是否精确 */
+    val morphology: List<com.wordlens.app.data.dict.MorphHint> = emptyList(),
     /** 例句译文：key 是原文 */
     val exampleZh: Map<String, String> = emptyMap(),
     val translatingExample: String? = null
