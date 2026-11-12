@@ -240,6 +240,7 @@ fun RootScreen(
                         },
                         onRefresh = { vm.refreshWordbook() },
                         onSetGroup = { w, g -> vm.setWordGroup(w, g) },
+                        onSetGroupBatch = { ws, g -> vm.setWordGroupBatch(ws, g) },
                         onExportText = { exportLauncher.launch("wordlens-words.txt") },
                         onDeleteMany = { ws -> vm.deleteWords(ws) },
                         groups = groups,

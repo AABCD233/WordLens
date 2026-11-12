@@ -51,6 +51,7 @@ fun WordbookScreen(
     onStartReview: () -> Unit,
     onRefresh: () -> Unit,
     onSetGroup: (String, String) -> Unit = { _, _ -> },
+    onSetGroupBatch: (List<String>, String) -> Unit = { _, _ -> },
     onExportText: () -> Unit = {},
     onDeleteMany: (List<String>) -> Unit = {},
     onReviewSelected: (List<String>) -> Unit = {},
@@ -223,7 +224,7 @@ fun WordbookScreen(
                 groups = customGroups,
                 onDismiss = { batchGroup = null },
                 onConfirm = { g ->
-                    words.forEach { onSetGroup(it, g) }
+                    onSetGroupBatch(words, g)
                     batchGroup = null
                     selected = emptySet()
                     selectMode = false
