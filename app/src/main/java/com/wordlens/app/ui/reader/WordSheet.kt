@@ -125,6 +125,7 @@ fun WordSheet(
                         word = word,
                         onSpeak = onSpeak,
                         onSave = onSave,
+                        alreadySaved = alreadySaved,
                         onAiExplain = onAiExplain,
                         onTranslateExample = onTranslateExample,
                         onEditNote = onEditNote,
@@ -176,7 +177,8 @@ private fun DefinitionBody(
     onTranslateExample: (String) -> Unit,
     onEditNote: () -> Unit,
     onLookupWord: (String) -> Unit,
-    onCopy: (String) -> Unit
+    onCopy: (String) -> Unit,
+    alreadySaved: Boolean = false
 ) {
     // 断网提示：只影响「在线补充」这一层，离线释义照常可用
     if (def.onlineFailed) {

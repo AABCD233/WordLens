@@ -83,7 +83,7 @@ fun RootScreen(
     updateInfo?.let { info ->
         UpdateDialog(
             tag = info.tag,
-            accel = settings.githubAccel,
+            accel = vm.settings.value.githubAccel,
             onDismiss = vm::dismissUpdate,
             onConfirm = { accel -> vm.installUpdate(info, accel) }
         )
