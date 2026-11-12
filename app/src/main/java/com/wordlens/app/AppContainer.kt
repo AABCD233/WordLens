@@ -4,6 +4,7 @@ import android.content.Context
 import com.wordlens.app.data.db.AppDatabase
 import com.wordlens.app.data.UpdateChecker
 import com.wordlens.app.data.backup.BackupManager
+import com.wordlens.app.data.dict.MorphStore
 import com.wordlens.app.data.db.DictPackManager
 import com.wordlens.app.data.db.DictStore
 import com.wordlens.app.data.dict.Cache
@@ -27,6 +28,7 @@ class AppContainer(context: Context) {
     val settings = AppSettings(context)
     val database = AppDatabase(context)
     val dictStore = DictStore(context)
+    val morph = MorphStore(context)
     val ocr = OcrEngine(context)
     val tts = TtsEngine(context)
     val dictPacks = DictPackManager(context, dictStore, settings)

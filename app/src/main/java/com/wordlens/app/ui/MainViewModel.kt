@@ -62,6 +62,10 @@ data class WordUi(
     val aiError: String? = null,
     /** 当前 AI 结果是哪个维度：explain / examples / collocations */
     val aiKind: String = "",
+    /** 同词族派生词（离线，来自 morph.db） */
+    val derivatives: List<String> = emptyList(),
+    /** 词缀/词根提示：前缀/后缀/词根 + 中文含义 */
+    val morphology: List<Pair<String, String>> = emptyList(),
     /** 例句译文：key 是原文 */
     val exampleZh: Map<String, String> = emptyMap(),
     val translatingExample: String? = null
@@ -428,7 +432,16 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
         _word.value = WordUi(visible = true, query = raw, sentence = sentence, loading = true)
         scope.launch {
             val def = runCatching { app.dictionary.lookup(raw) }.getOrElse { Definition.empty(raw) }
-            _word.value = _word.value.copy(loading = false, definition = def, query = raw)
+            val lemma = def.lemma.ifBlank { raw }
+            val deriv = runCatching { app.morph.derivatives(lemma) }.getOrDefault(emptyList())
+            val morph = runCatching { app.morph.morphology(lemma) }.getOrDefault(emptyList())
+            _word.value = _word.value.copy(
+                loading = false,
+                definition = def,
+                query = raw,
+                derivatives = deriv,
+                morphology = morph
+            )
             if (def.onlineFailed) {
                 _messages.tryEmit("没联网，只显示了离线释义")
             }

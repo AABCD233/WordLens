@@ -446,6 +446,9 @@ fun SettingsScreen(
                 Text("检查更新")
             }
             Spacer(Modifier.height(10.dp))
+            Hint("词根 / 词族数据来自 Morpheme Lexicon（morphemelexicon.com），非商业引用。该项目未提供作者联系方式，若引用方式不妥请联系我们，会立即调整或移除并致歉。")
+
+            Spacer(Modifier.height(10.dp))
             Text(
                 "仓库地址",
                 style = MaterialTheme.typography.labelMedium,

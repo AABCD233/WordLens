@@ -385,6 +385,56 @@ private fun DefinitionBody(
         }
     }
 
+    // 词根词缀（离线，标注"可能相关"，只给高置信度匹配）
+    if (word.morphology.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("词根词缀")
+        word.morphology.forEach { (form, meaning) ->
+            Row(Modifier.padding(vertical = 2.dp)) {
+                Text(
+                    form,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    meaning,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Text(
+            "按拼写匹配，仅供参考（同形不同源的词可能不准）",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+    }
+
+    // 同族派生词：点一下直接查它
+    if (word.derivatives.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("同根词")
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            word.derivatives.forEach { w ->
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onLookupWord(w) }
+                ) {
+                    Text(
+                        w,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+        }
+    }
+
     // 词形变化：每个都能点进去查（应对「只认识变形、不认识原形」的场景）
     if (def.inflections.isNotEmpty()) {
         Spacer(Modifier.height(10.dp))
