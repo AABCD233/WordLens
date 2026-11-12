@@ -93,12 +93,16 @@ class MorphStore(private val context: Context) {
     /** 返回值第三项是「是否精确」：词以完整词根开头才算可信 */
     private fun matchRoots(d: SQLiteDatabase, w: String): List<Triple<String, String, Boolean>> {
         if (w.length < 6) return emptyList()
+        // 本词已经是词族的词根（fortune / struct 这种），再往上拆只会拆出更短的巧合前缀，
+        // 而且和「同根词」那一节重复。这种情况直接不给词根。
+        if (lemmaOf(d, w) == w) return emptyList()
         val stem = stemOf(d, w)
         if (stem.length < 4) return emptyList()
 
         val scored = mutableListOf<Pair<Boolean, Triple<Int, Int, RootRow>>>()
         for (r in roots(d)) {
             val root = r.root
+            if (root == w) continue
             // 词根是词干的前缀（struct-ural ← struct），或词干是词根的前缀（fortun-ate ← fortune）
             val lcp = commonPrefixLen(stem, root)
             if (lcp < 4) continue
@@ -115,7 +119,13 @@ class MorphStore(private val context: Context) {
                 .thenByDescending { it.second.first }
                 .thenByDescending { it.second.second }
                 .thenByDescending { it.second.third.freq }
-        ).take(2).map { Triple(it.second.third.root, it.second.third.zh, it.first) }
+        ).filterIndexed { _, pair ->
+            // 去掉「是另一个候选的前缀」的冗余项：spect 与 spectr 只留 spect
+            noneOf { other -> other.second.third !== pair.second.third &&
+                pair.second.third.root.startsWith(other.second.third.root) }
+        }.take(2).map {
+            Triple(it.second.third.root, it.second.third.zh, it.first)
+        }
     }
 
     /**
@@ -125,12 +135,14 @@ class MorphStore(private val context: Context) {
      * 刻意**不剥派生前缀**：试过按 affix 表剥，会把 fortunate 削成 tunate、
      * construction 削成 nstruction，错误比收益多。宁可少给提示。
      */
+    private fun lemmaOf(d: SQLiteDatabase, w: String): String = runCatching {
+        d.rawQuery("SELECT lemma FROM family WHERE word=? LIMIT 1", arrayOf(w)).use {
+            if (it.moveToFirst()) it.getString(0) else w
+        }
+    }.getOrDefault(w)
+
     private fun stemOf(d: SQLiteDatabase, w: String): String {
-        val lemma = runCatching {
-            d.rawQuery("SELECT lemma FROM family WHERE word=? LIMIT 1", arrayOf(w)).use {
-                if (it.moveToFirst()) it.getString(0) else w
-            }
-        }.getOrDefault(w)
+        val lemma = lemmaOf(d, w)
         val stem = commonPrefix(w, lemma)
         return if (stem.length >= 4) stem else w
     }
