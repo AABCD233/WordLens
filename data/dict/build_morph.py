@@ -64,7 +64,7 @@ def main():
         os.remove(out)
     db = sqlite3.connect(out)
     db.executescript("""
-        CREATE TABLE family (word TEXT, lemma TEXT, inflection INTEGER);
+        CREATE TABLE family (word TEXT, lemma TEXT, inflection INTEGER, in_dict INTEGER DEFAULT 1);
         CREATE INDEX i_fam_lemma ON family(lemma);
         CREATE TABLE seg (word TEXT PRIMARY KEY, prefix TEXT, root TEXT, suffix TEXT);
         PRAGMA journal_mode=DELETE;
@@ -88,8 +88,8 @@ def main():
             continue
         if known and w not in known:
             continue
-        rows.append((w, lemma, 1 if p[3].strip() == "1" else 0))
-    db.executemany("INSERT INTO family VALUES (?,?,?)", rows)
+        rows.append((w, lemma, 1 if p[3].strip() == "1" else 0, 1 if (not known or w in known) else 0))
+    db.executemany("INSERT INTO family VALUES (?,?,?,?)", rows)
 
     # 词素切分只收 CityLex（umLabeller 有实测错误，整源弃用）
     seg_rows = []

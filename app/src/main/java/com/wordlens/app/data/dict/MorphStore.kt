@@ -21,19 +21,39 @@ data class MorphHint(
  */
 class MorphStore(private val context: Context) {
 
+    companion object {
+        /** 带版本号的文件名：表结构改了换个名字，就不会用到旧的拷贝 */
+        private const val SCHEMA_FILE = "morph-v2.db"
+    }
+
     @Volatile
     private var db: SQLiteDatabase? = null
 
     private fun open(): SQLiteDatabase? = db ?: synchronized(this) {
         db ?: runCatching {
-            val file = File(context.filesDir, "morph.db")
+            val file = File(context.filesDir, SCHEMA_FILE)
             if (!file.exists() || file.length() == 0L) {
                 context.assets.open("morph.db").use { input ->
                     file.outputStream().use { out -> input.copyTo(out) }
                 }
             }
-            SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
-                .also { db = it }
+            // 老版本拷过去的是旧结构（没有 seg 表），必须换成新的
+            val opened = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+            val hasSeg = runCatching {
+                opened.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='seg'", null)
+                    .use { it.moveToFirst() }
+            }.getOrDefault(false)
+            if (!hasSeg) {
+                opened.close()
+                file.delete()
+                context.assets.open("morph.db").use { input ->
+                    file.outputStream().use { out -> input.copyTo(out) }
+                }
+                SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                    .also { db = it }
+            } else {
+                opened.also { db = it }
+            }
         }.getOrNull()
     }
 
@@ -48,7 +68,8 @@ class MorphStore(private val context: Context) {
         }.getOrDefault(w)
         val raw = runCatching {
             d.rawQuery(
-                "SELECT word, inflection FROM family WHERE lemma=? AND word<>? ORDER BY length(word) LIMIT 40",
+                "SELECT word, inflection FROM family WHERE lemma=? AND word<>? AND in_dict=1 " +
+                    "ORDER BY length(word) LIMIT 40",
                 arrayOf(lemma, w)
             ).use { c ->
                 buildList { while (c.moveToNext()) add(c.getString(0) to (c.getInt(1) == 1)) }
