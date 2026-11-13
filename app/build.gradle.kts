@@ -15,9 +15,14 @@ android {
         versionCode = 31
         versionName = "2.6.0"
         vectorDrawables { useSupportLibrary = true }
-        ndk {
-            // 只保留 arm64：32 位 .so 在 2018 年后的机器上基本用不到
-            abiFilters += listOf("arm64-v8a")
+        // 按 ABI 拆包：每个架构一个 APK，体积各自小很多
+        splits {
+            abi {
+                isEnable = true
+                reset()
+                include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+                isUniversalApk = false
+            }
         }
     }
 

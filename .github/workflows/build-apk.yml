@@ -46,17 +46,19 @@ jobs:
       # 这里直接把证书指纹打到日志里，并和固定值比对，签名一变就把构建搞红。
       - name: Verify APK signature is stable
         run: |
-          APK=$(ls out/*.apk | head -1)
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           echo "apksigner: $APKSIGNER"
-          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/sig.txt
-          # apksigner 输出的指纹不带冒号、全小写
           EXPECTED="485f0e1dde1065734ca508caf35cd0f29f2daacf620c28e7246bc9db4220d0a7"
-          if grep -qi "$EXPECTED" /tmp/sig.txt; then
-            echo "✅ 签名证书指纹与固定值一致：$EXPECTED"
-          else
-            echo "❌ 签名证书变了！这会导致老用户无法覆盖安装。"; exit 1
-          fi
+          FAIL=0
+          for APK in out/*.apk; do
+            "$APKSIGNER" verify --print-certs "$APK" > /tmp/sig.txt 2>&1 || true
+            if grep -qi "$EXPECTED" /tmp/sig.txt; then
+              echo "✅ $(basename "$APK") 签名一致"
+            else
+              echo "❌ $(basename "$APK") 签名不一致！"; FAIL=1
+            fi
+          done
+          [ "$FAIL" = "0" ] || exit 1
 
       # 先上传 APK 再跑单测：万一某个断言不过，包也已经在 artifacts 里了
       - name: Upload APK

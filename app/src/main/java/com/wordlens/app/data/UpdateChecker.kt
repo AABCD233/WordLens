@@ -28,11 +28,13 @@ class UpdateChecker(private val accelEnabled: () -> Boolean) {
                 val o = JSONObject(body)
                 val tag = o.optString("tag_name", "").removePrefix("v")
                 val url = o.optString("html_url", "https://github.com/AABCD233/WordLens/releases")
-                val apk = o.optJSONArray("assets")?.let { arr ->
+                val apks = o.optJSONArray("assets")?.let { arr ->
                     (0 until arr.length())
                         .map { arr.optJSONObject(it)?.optString("browser_download_url").orEmpty() }
-                        .firstOrNull { it.endsWith(".apk", ignoreCase = true) }
-                }
+                        .filter { it.endsWith(".apk", ignoreCase = true) }
+                }.orEmpty()
+                // 每个架构一个包：按本机支持顺序挑，arm64 优先，挑不到就退回默认包
+                val apk = pickApkForThisDevice(apks)
                 if (tag.isBlank()) error("没有版本号")
                 Latest(
                     tag = tag,
@@ -45,6 +47,19 @@ class UpdateChecker(private val accelEnabled: () -> Boolean) {
             last = r.exceptionOrNull()
         }
         Result.failure(last ?: IllegalStateException("检查更新失败"))
+    }
+
+    /** 从 Release 附件里挑出适配本机架构的 APK */
+    private fun pickApkForThisDevice(apks: List<String>): String? {
+        if (apks.isEmpty()) return null
+        val mine = android.os.Build.SUPPORTED_ABIS.map { it.lowercase() }
+        for (abi in mine) {
+            apks.firstOrNull { it.lowercase().contains(abi) }?.let { return it }
+        }
+        // 没有匹配的架构包：优先给 arm64，再给不带架构名的通用包
+        return apks.firstOrNull { it.contains("arm64", true) }
+            ?: apks.firstOrNull { !it.contains("x86", true) && !it.contains("v7a", true) }
+            ?: apks.first()
     }
 
     /** 下载 APK 到 dest（支持加速镜像与断点续传），返回文件 */
