@@ -157,7 +157,8 @@
 
 ## 致谢与许可
 
-- **词根 / 词族数据**：[Morpheme Lexicon](https://morphemelexicon.com/)（非商业引用）。
+- **词素切分**：[CityLex](https://citylex.onrender.com/)（经 [morphoneme](https://github.com/connoryang331/morphoneme) 整理），MIT 程度的使用许可见上游。
+- **词族数据**：[Morpheme Lexicon](https://morphemelexicon.com/)（非商业引用）。
   该项目未公开作者联系方式，若作者认为引用方式不妥，请通过 Issue 联系，我们会第一时间调整或移除并致歉。
   数据按其原始形态使用，本项目只做了筛减与打包。
 
