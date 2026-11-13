@@ -653,9 +653,13 @@ private fun FilterChipCompat(
 private fun SectionTitle(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 3.dp)
+        // 比正文略大、略重、颜色更实一点，但不抢内容
+        style = MaterialTheme.typography.titleSmall.copy(
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        ),
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 2.dp, bottom = 5.dp)
     )
 }
 
