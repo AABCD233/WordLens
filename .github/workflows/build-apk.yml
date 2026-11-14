@@ -71,10 +71,16 @@ jobs:
       - name: Unit-test the pure-Kotlin logic
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 
-      # 打 tag 时顺手创建 Release，手机上点一下就能下载安装
-      - name: Attach APK to release
+      # 打 tag 时只创建 Release 草稿：由 tools/wl.py 或手机面板确认说明后再 PATCH 发布。
+      # 这样 tag 一推不会立刻公开，也避免自动生成的英文说明。
+      - name: Attach APK to release draft
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: out/*.apk
-          generate_release_notes: true
+          draft: true
+          generate_release_notes: false
+          body: |
+            安装包按架构拆分，绝大多数设备装 arm64 那个（app-arm64-v8a-release.apk）。
+
+            维护者确认更新说明后再发布。
