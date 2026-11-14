@@ -66,7 +66,7 @@ class UpdateChecker(private val accelEnabled: () -> Boolean) {
     suspend fun download(
         apkUrl: String,
         dest: java.io.File,
-        onProgress: (downloadedMb: Long) -> Unit
+        onProgress: (downloaded: Long, total: Long) -> Unit
     ): Result<java.io.File> = withContext(Dispatchers.IO) {
         var last: Throwable? = null
         for (u in AccelMirrors.candidates(apkUrl, accelEnabled())) {
@@ -80,6 +80,7 @@ class UpdateChecker(private val accelEnabled: () -> Boolean) {
                 if (conn.responseCode !in 200..299) {
                     conn.disconnect(); error("HTTP ${conn.responseCode}")
                 }
+                val total = conn.contentLengthLong.takeIf { it > 0 } ?: 0L
                 var written = 0L
                 conn.inputStream.use { input ->
                     dest.outputStream().use { out ->
@@ -89,7 +90,7 @@ class UpdateChecker(private val accelEnabled: () -> Boolean) {
                             if (n <= 0) break
                             out.write(buf, 0, n)
                             written += n
-                            onProgress(written / (1024 * 1024))
+                            onProgress(written, total)
                         }
                     }
                 }

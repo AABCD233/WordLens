@@ -81,9 +81,13 @@ fun RootScreen(
     }
 
     updateInfo?.let { info ->
+        val downloading by vm.downloading.collectAsState()
+        val progress by vm.downloadProgress.collectAsState()
         UpdateDialog(
             tag = info.tag,
             accel = vm.settings.value.githubAccel,
+            downloading = downloading,
+            progress = progress,
             onDismiss = vm::dismissUpdate,
             onConfirm = { accel -> vm.installUpdate(info, accel) }
         )

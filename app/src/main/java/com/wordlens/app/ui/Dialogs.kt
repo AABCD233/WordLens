@@ -258,6 +258,9 @@ private fun Body(t: String) {
 fun UpdateDialog(
     tag: String,
     accel: Boolean,
+    downloading: Boolean = false,
+    /** 0f–1f；null 表示服务器没给总大小 */
+    progress: Float? = null,
     onDismiss: () -> Unit,
     onConfirm: (Boolean) -> Unit
 ) {
@@ -267,17 +270,41 @@ fun UpdateDialog(
         title = { Text("发现新版本 $tag") },
         text = {
             Column {
-                Text(
-                    "下载安装包后会自动打开系统安装器。安装包装完就没用了，App 下次启动会自动删掉。",
-                    style = MaterialTheme.typography.bodySmall,
-                    lineHeight = 20.sp
-                )
-                Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Switch(
-                        checked = useAccel,
-                        onCheckedChange = { useAccel = it }
+                if (downloading) {
+                    Text(
+                        if (progress != null) "正在下载安装包 ${(progress * 100).toInt()}%"
+                        else "正在下载安装包…",
+                        style = MaterialTheme.typography.bodyMedium
                     )
+                    Spacer(Modifier.height(8.dp))
+                    if (progress != null) {
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth().height(6.dp)
+                        )
+                    } else {
+                        androidx.compose.material3.LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(6.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "下完会自动打开系统安装器，安装包装完就没用了",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        "下载安装包后会自动打开系统安装器。安装包装完就没用了，App 下次启动会自动删掉。",
+                        style = MaterialTheme.typography.bodySmall,
+                        lineHeight = 20.sp
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Switch(
+                            checked = useAccel,
+                            onCheckedChange = { useAccel = it }
+                        )
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Text("使用 GitHub 加速下载", style = MaterialTheme.typography.bodyMedium)
@@ -286,11 +313,18 @@ fun UpdateDialog(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(useAccel) }) { Text("下载并安装") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        confirmButton = {
+            TextButton(onClick = { onConfirm(useAccel) }, enabled = !downloading) {
+                Text("下载并安装")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !downloading) { Text("取消") }
+        }
     )
 }

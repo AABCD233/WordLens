@@ -342,7 +342,7 @@ fun CaptureScreen(
             ) {
                 item(key = "all") {
                     Card(
-                        modifier = Modifier.width(120.dp).height(150.dp).clickable { onOpenHistory() },
+                        modifier = Modifier.width(112.dp).height(94.dp).clickable { onOpenHistory() },
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -363,7 +363,8 @@ fun CaptureScreen(
                 items(recent, key = { it.id }) { doc ->
                     var menuOpen by remember(doc.id) { mutableStateOf(false) }
                     Card(
-                        modifier = Modifier.width(184.dp).clip(RoundedCornerShape(20.dp))
+                        modifier = Modifier.width(184.dp).height(94.dp)
+                            .clip(RoundedCornerShape(20.dp))
                             .clickable { onOpen(doc.id) },
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(

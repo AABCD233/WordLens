@@ -185,6 +185,10 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private val _downloading = MutableStateFlow(false)
     val downloading: StateFlow<Boolean> = _downloading.asStateFlow()
 
+    /** 下载进度 0f–1f；null 表示不知道总量 */
+    private val _downloadProgress = MutableStateFlow<Float?>(null)
+    val downloadProgress: StateFlow<Float?> = _downloadProgress.asStateFlow()
+
     fun dismissUpdate() { _update.value = null }
 
     /** 下载并交给系统安装器；装完在下次启动时清掉安装包 */
@@ -200,11 +204,14 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
             val dir = java.io.File(app.appContext.cacheDir, "update")
             dir.mkdirs()
             val dest = java.io.File(dir, "wordlens-${latest.tag}.apk")
-            _messages.tryEmit("开始下载 ${latest.tag}…")
-            val result = app.updates.download(apkUrl, dest) { mb ->
-                if (mb % 10 == 0L) _messages.tryEmit("已下载 $mb MB")
+            _downloadProgress.value = 0f
+            val result = app.updates.download(apkUrl, dest) { done, total ->
+                _downloadProgress.value = if (total > 0) {
+                    (done.toFloat() / total).coerceIn(0f, 1f)
+                } else null
             }
             _downloading.value = false
+            _downloadProgress.value = null
             result.onSuccess { file ->
                 _update.value = null
                 launchInstaller(file)
