@@ -52,18 +52,57 @@ class TtsEngine(context: Context) {
                         .build()
                 )
             }
-            // 别只用 setLanguage 的返回值判断：有的引擎 setLanguage 成功但实际没数据。
-            // 依次尝试英式/美式，再看 isLanguageAvailable 的真实结果。
-            val ok = listOf(Locale.UK, Locale.US, Locale.ENGLISH).any { locale ->
-                runCatching {
-                    engine.setLanguage(locale)
-                    engine.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE
-                }.getOrDefault(false)
+            // 先看这个引擎自己列出的可用语言，再决定要不要换引擎。
+            if (applyEnglish(engine)) {
+                _state.value = State.READY
+                return
             }
-            _state.value = if (ok) State.READY else State.UNAVAILABLE
+            // 常见坑：系统装的是「另一个 TTS 引擎」里的英文语音，
+            // 默认引擎只有中文，于是 isLanguageAvailable(英文) 返回 false。
+            tryOtherEngines(engine, 0)
         } else {
             _state.value = State.UNAVAILABLE
         }
+    }
+
+    /** 在当前引擎里挑一个英语语音；挑到就设成默认并返回 true */
+    private fun applyEnglish(engine: TextToSpeech): Boolean {
+        val langs = runCatching { engine.availableLanguages }.getOrDefault(emptySet())
+        val en = langs.firstOrNull { it.language.equals("en", ignoreCase = true) }
+        if (en != null) {
+            runCatching { engine.setLanguage(en) }
+            // 有的引擎设了语言但没数据，再确认一次
+            val ok = runCatching {
+                engine.isLanguageAvailable(en) >= TextToSpeech.LANG_AVAILABLE
+            }.getOrDefault(true)
+            if (ok) return true
+        }
+        // 兜底：不先 setLanguage，直接问这个引擎支不支持英美音
+        return listOf(Locale.US, Locale.UK).any { loc ->
+            runCatching {
+                engine.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE &&
+                    runCatching { engine.setLanguage(loc) }.isSuccess
+            }.getOrDefault(false)
+        }
+    }
+
+    /** 依次试系统里其它 TTS 引擎（有的机器英文语音装在别的引擎里） */
+    private fun tryOtherEngines(engine: TextToSpeech, index: Int) {
+        val all = runCatching { engine.engines.orEmpty() }.getOrDefault(emptyList())
+            .mapNotNull { it.name }
+        if (index >= all.size) {
+            _state.value = State.UNAVAILABLE
+            return
+        }
+        val pkg = all[index]
+        val switched = runCatching { engine.setEngine(pkg) }.isSuccess
+        main.postDelayed({
+            if (switched && applyEnglish(engine)) {
+                _state.value = State.READY
+            } else {
+                tryOtherEngines(engine, index + 1)
+            }
+        }, 350)
     }
 
     /** 系统 TTS 是否可用（初始化完成且找到英文语音） */

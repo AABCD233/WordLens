@@ -152,7 +152,10 @@ fun RootScreen(
     BackHandler(enabled = !reviewing && !readerVisible && tab != Tab.Camera) { tab = Tab.Camera }
 
     when {
-        showHistory -> com.wordlens.app.ui.history.DocumentHistoryScreen(
+        showHistory -> {
+            // 全面屏返回手势：先回拍照页，而不是直接退到桌面
+            androidx.activity.compose.BackHandler(enabled = true) { showHistory = false }
+            com.wordlens.app.ui.history.DocumentHistoryScreen(
             docs = library,
             onBack = { showHistory = false },
             onOpen = { id ->
@@ -160,7 +163,8 @@ fun RootScreen(
                 vm.openDocument(id)
             },
             onDelete = { ids -> vm.deleteDocuments(ids) }
-        )
+            )
+        }
 
         reviewing -> ReviewScreen(
             state = review,
@@ -304,7 +308,7 @@ fun RootScreen(
 
             // 悬浮导航栏（PiliPlus 那种：不贴边、圆角、浮在内容上）
             androidx.compose.animation.AnimatedVisibility(
-                visible = navVisible,
+                visible = navVisible || settings.pinBottomBar,
                 enter = androidx.compose.animation.slideInVertically { it } +
                     androidx.compose.animation.fadeIn(),
                 exit = androidx.compose.animation.slideOutVertically { it } +

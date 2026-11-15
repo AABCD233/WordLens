@@ -148,6 +148,16 @@ class FloatingService : Service() {
             }
             setPadding(dp(10), dp(6), dp(10), dp(6))
         }
+        val speak = TextView(this).apply {
+            text = "🔊"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(7), dp(8), dp(7))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(c.inputBg)
+            }
+        }
         val go = TextView(this).apply {
             text = "查"
             setTextColor(Color.WHITE)
@@ -162,6 +172,9 @@ class FloatingService : Service() {
         inputRow.addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         val gap = View(this); gap.layoutParams = LinearLayout.LayoutParams(dp(6), 1)
         inputRow.addView(gap)
+        inputRow.addView(speak)
+        val gap2 = View(this); gap2.layoutParams = LinearLayout.LayoutParams(dp(6), 1)
+        inputRow.addView(gap2)
         inputRow.addView(go)
         panel.addView(inputRow)
 
@@ -287,6 +300,8 @@ class FloatingService : Service() {
                     en
                 ).filter { it.isNotBlank() }.joinToString("\n\n")
                     .ifBlank { "（没有释义）" }
+                // 跟随设置里的「自动朗读」
+                if (container.settings.state.value.autoSpeak) speakWord(def.lemma.ifBlank { q })
             }
         }
 
@@ -295,6 +310,11 @@ class FloatingService : Service() {
                 setTyping(true, v)
             }
             false
+        }
+
+        speak.setOnClickListener {
+            val w = input.text.toString().trim().ifBlank { head.text.toString() }
+            if (w.isNotEmpty()) speakWord(w)
         }
 
         go.setOnClickListener { lookup() }
@@ -425,6 +445,18 @@ class FloatingService : Service() {
         frame?.let {
             runCatching { wm.addView(it, params) }
         }
+    }
+
+    /** 用 App 的朗读引擎念单词（系统/在线两种模式都跟随设置） */
+    private fun speakWord(word: String) {
+        val c = (application as? WordLensApp)?.container ?: return
+        val st = c.settings.state.value
+        val mode = if (st.ttsMode == "online") {
+            com.wordlens.app.data.tts.TtsEngine.Mode.ONLINE
+        } else {
+            com.wordlens.app.data.tts.TtsEngine.Mode.SYSTEM
+        }
+        runCatching { c.tts.speak(word, st.speechRate, mode) }
     }
 
     private fun hideKeyboard(v: View) {

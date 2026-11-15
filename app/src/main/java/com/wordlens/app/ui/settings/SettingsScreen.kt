@@ -302,6 +302,12 @@ fun SettingsScreen(
                 settings.dynamicColor
             ) { checked -> onUpdate { it.copy(dynamicColor = checked) } }
             Hint("深色 / 浅色跟随系统设置，这里只控制取色来源。")
+
+            ToggleRow(
+                "底栏常驻",
+                "开：底部胶囊一直显示；关：上滑收起、下滑出现（开悬浮查词后底栏不见了，就打开这个）",
+                settings.pinBottomBar
+            ) { checked -> onUpdate { it.copy(pinBottomBar = checked) } }
         }
 
         // ---------- 数据 ----------

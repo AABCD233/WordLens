@@ -38,6 +38,8 @@ data class Settings(
     val azureRegion: String = "global",
     /** 当前使用的扩展词典包 id；空串 = 内置核心词典 */
     val activePackId: String = "",
+    /** 底栏常驻（不随滚动隐藏） */
+    val pinBottomBar: Boolean = false,
     /** 是否开启应用外悬浮球查词 */
     val floatingButton: Boolean = false,
     /** 下载 GitHub 资源时是否走加速镜像 */
@@ -83,6 +85,7 @@ class AppSettings(context: Context) {
         azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
         azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global",
         activePackId = prefs.getString(K_PACK, "") ?: "",
+        pinBottomBar = prefs.getBoolean(K_PIN_BAR, false),
         floatingButton = prefs.getBoolean(K_FLOATING, false),
         githubAccel = prefs.getBoolean(K_ACCEL, true),
         disclaimerAccepted = prefs.getBoolean(K_DISCLAIMER, false),
@@ -114,6 +117,7 @@ class AppSettings(context: Context) {
             putString(K_AZ_KEY, next.azureKey)
             putString(K_AZ_REGION, next.azureRegion)
             putString(K_PACK, next.activePackId)
+            putBoolean(K_PIN_BAR, next.pinBottomBar)
             putBoolean(K_FLOATING, next.floatingButton)
             putBoolean(K_ACCEL, next.githubAccel)
             putBoolean(K_DISCLAIMER, next.disclaimerAccepted)
@@ -154,6 +158,7 @@ class AppSettings(context: Context) {
         const val K_DICT_HIST = "dictation_history"
         const val K_ACCEL = "github_accel"
         const val K_FLOATING = "floating_button"
+        const val K_PIN_BAR = "pin_bottom_bar"
         const val K_DISCLAIMER = "disclaimer_accepted"
     }
 }

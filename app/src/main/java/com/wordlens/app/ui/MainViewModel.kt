@@ -813,9 +813,17 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun deleteDocuments(ids: List<Long>) {
         scope.launch {
+            // 先把这些记录对应的照片文件删掉，再删数据库行；
+            // 否则文字记录没了、图片还占着空间（设置里的「清理照片」会显示还有一堆）
+            val paths = withContext(Dispatchers.IO) {
+                runCatching { app.database.imagePathsOf(ids) }.getOrDefault(emptyList())
+            }
             val n = app.database.deleteDocuments(ids)
+            withContext(Dispatchers.IO) {
+                paths.forEach { p -> runCatching { java.io.File(p).takeIf { it.exists() }?.delete() } }
+            }
             refreshLibrary()
-            _messages.tryEmit("已删除 $n 条记录")
+            _messages.tryEmit("已删除 $n 条记录" + if (paths.isNotEmpty()) "（含 ${paths.size} 张照片）" else "")
         }
     }
 

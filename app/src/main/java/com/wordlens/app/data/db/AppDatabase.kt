@@ -179,6 +179,16 @@ class AppDatabase(context: Context) :
         db.delete("saved_word", "word IN ($ids)", words.toTypedArray())
     }
 
+    /** 这些记录的图片路径（删记录时先把文件也删掉） */
+    suspend fun imagePathsOf(ids: List<Long>): List<String> = read { db ->
+        if (ids.isEmpty()) return@read emptyList()
+        val ph = ids.joinToString(",") { "?" }
+        db.rawQuery(
+            "SELECT image_path FROM document WHERE id IN ($ph) AND image_path IS NOT NULL AND image_path<>''",
+            ids.map { it.toString() }.toTypedArray()
+        ).useList { it.getString(0) }
+    }
+
     /** 批量删除识别记录 */
     suspend fun deleteDocuments(ids: List<Long>): Int = write { db ->
         if (ids.isEmpty()) return@write 0
