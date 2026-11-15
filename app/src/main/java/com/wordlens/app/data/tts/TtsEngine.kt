@@ -87,22 +87,30 @@ class TtsEngine(context: Context) {
     }
 
     /** 依次试系统里其它 TTS 引擎（有的机器英文语音装在别的引擎里） */
-    private fun tryOtherEngines(engine: TextToSpeech, index: Int) {
-        val all = runCatching { engine.engines.orEmpty() }.getOrDefault(emptyList())
+    private fun tryOtherEngines(from: TextToSpeech, index: Int) {
+        val all = runCatching { from.engines.orEmpty() }.getOrDefault(emptyList())
             .mapNotNull { it.name }
         if (index >= all.size) {
             _state.value = State.UNAVAILABLE
             return
         }
         val pkg = all[index]
-        val switched = runCatching { engine.setEngine(pkg) }.isSuccess
-        main.postDelayed({
-            if (switched && applyEnglish(engine)) {
-                _state.value = State.READY
-            } else {
-                tryOtherEngines(engine, index + 1)
+        var cand: TextToSpeech? = null
+        // 换引擎只能重新构造（setEngine 在部分 SDK 上不可用）
+        cand = TextToSpeech(appContext, { status ->
+            main.post {
+                val c = cand
+                val ok = status == TextToSpeech.SUCCESS && c != null && applyEnglish(c)
+                if (ok && c != null) {
+                    runCatching { tts?.shutdown() }
+                    tts = c
+                    _state.value = State.READY
+                } else {
+                    runCatching { c?.shutdown() }
+                    tryOtherEngines(from, index + 1)
+                }
             }
-        }, 350)
+        }, pkg)
     }
 
     /** 系统 TTS 是否可用（初始化完成且找到英文语音） */
