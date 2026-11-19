@@ -22,6 +22,13 @@ enum class DictStatus { IDLE, PREPARING, READY, MISSING }
  */
 class DictStore(context: Context) {
 
+    /** 词组查询的公共过滤：跳过空释义、带 [计][机] 这类领域标记的机翻词条、含数字的条目 */
+    private companion object {
+        const val PHRASE_WHERE =
+            "word LIKE ? AND word<>? AND translation NOT LIKE '%[%' " +
+                "AND translation<>'' AND word NOT GLOB '*[0-9]*'"
+    }
+
     private val appContext = context.applicationContext
     private val lock = Any()
     private var handle: SQLiteDatabase? = null
@@ -126,19 +133,12 @@ class DictStore(context: Context) {
             val w = word.lowercase()
             runCatching {
                 db.rawQuery(
-                    "SELECT word, translation FROM dict WHERE word LIKE ? AND word<>? " +
+                    "SELECT word, translation FROM dict WHERE $PHRASE_WHERE " +
                         "ORDER BY length(word) LIMIT ?",
                     arrayOf("$w %", w, limit.toString())
                 ).use { c ->
                     buildList {
-                        while (c.moveToNext()) {
-                            val w = c.getString(0)
-                            val zh = c.getString(1).orEmpty()
-                            // [计] [机] 这类是专业词条，多半是机翻，日常查词用不上
-                            if (zh.isBlank() || zh.contains("[")) continue
-                            if (w.any { it.isDigit() }) continue
-                            add(w to zh)
-                        }
+                        while (c.moveToNext()) add(c.getString(0) to c.getString(1))
                     }
                 }
             }.getOrDefault(emptyList())
@@ -150,7 +150,7 @@ class DictStore(context: Context) {
         val w = word.lowercase()
         runCatching {
             db.rawQuery(
-                "SELECT COUNT(*) FROM dict WHERE word LIKE ? AND word<>?",
+                "SELECT COUNT(*) FROM dict WHERE $PHRASE_WHERE",
                 arrayOf("$w %", w)
             ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
         }.getOrDefault(0)
