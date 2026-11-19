@@ -22,12 +22,6 @@ enum class DictStatus { IDLE, PREPARING, READY, MISSING }
  */
 class DictStore(context: Context) {
 
-    /** 词组查询的公共过滤：跳过空释义、带 [计][机] 这类领域标记的机翻词条、含数字的条目 */
-    private companion object {
-        const val PHRASE_WHERE =
-            "word LIKE ? AND word<>? AND translation NOT LIKE '%[%' " +
-                "AND translation<>'' AND word NOT GLOB '*[0-9]*'"
-    }
 
     private val appContext = context.applicationContext
     private val lock = Any()
@@ -224,6 +218,11 @@ class DictStore(context: Context) {
     data class LemmaHit(val row: DictRow, val matchedWord: String, val isOriginal: Boolean)
 
     private companion object {
+        /** 词组查询的公共过滤：空释义、带 [计][机] 领域标记的机翻词条、含数字的条目都不要 */
+        const val PHRASE_WHERE =
+            "word LIKE ? AND word<>? AND translation NOT LIKE '%[%' " +
+                "AND translation<>'' AND word NOT GLOB '*[0-9]*'"
+
         const val ASSET_NAME = "dict.db"
         const val PREF_SIZE = "dict_size"
         const val DEFAULT_BUF = 128 * 1024
