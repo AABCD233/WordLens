@@ -381,18 +381,19 @@ fun RootScreen(
                 vm.toast("已复制")
             }
         )
+    }
 
-        // 词组二级页：写在词卡之后，窗口才会叠在词卡上面
-        val pp = phrasePage
-        if (pp != null) {
-            com.wordlens.app.ui.reader.PhraseListScreen(
-                word = pp.word,
-                phrases = pp.items,
-                listState = phraseListState,
-                onBack = { vm.closePhrases() },
-                onLookup = { w -> vm.lookupFromPhrase(w) }
-            )
-        }
+    // 词组二级页：独立于词卡，词卡关掉后它还在
+    // 必须写在词卡之后，窗口才会叠在词卡上面
+    val pp = phrasePage
+    if (pp != null) {
+        com.wordlens.app.ui.reader.PhraseListScreen(
+            word = pp.word,
+            phrases = pp.items,
+            listState = phraseListState,
+            onBack = { vm.closePhrases() },
+            onLookup = { w -> vm.lookupFromPhrase(w) }
+        )
     }
 
     noteWord?.let { w ->

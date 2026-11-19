@@ -464,6 +464,8 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     // ---------------- 查词 ----------------
 
     fun lookupWord(raw: String, sentence: String? = null) {
+        // 新查一个词：上一次的词组页到此为止，别跟着新词卡冒出来
+        if (phraseReturn == null && _phrasePage.value != null) _phrasePage.value = null
         val key = WordNormalizer.normalize(raw)
         if (key.isEmpty()) return
         _word.value = WordUi(visible = true, query = raw, sentence = sentence, loading = true)
