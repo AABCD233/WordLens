@@ -155,19 +155,6 @@ fun RootScreen(
     BackHandler(enabled = !reviewing && !readerVisible && tab != Tab.Camera) { tab = Tab.Camera }
 
     when {
-        phrasePage != null -> {
-            androidx.activity.compose.BackHandler(enabled = true) { vm.closePhrases() }
-            com.wordlens.app.ui.reader.PhraseListScreen(
-                word = phrasePage!!.word,
-                phrases = phrasePage!!.items,
-                onBack = { vm.closePhrases() },
-                onLookup = { w ->
-                    vm.closePhrases()
-                    vm.lookupWord(w, null)
-                }
-            )
-        }
-
         showHistory -> {
             // 全面屏返回手势：先回拍照页，而不是直接退到桌面
             androidx.activity.compose.BackHandler(enabled = true) { showHistory = false }
@@ -375,6 +362,17 @@ fun RootScreen(
 
     // 词卡：所有页面共用（拍照阅读、直接查词都能弹）
     if (word.visible) {
+        // 词组二级页：和词卡同一层级（都是 Dialog）。查词时先让出，关掉词卡再回来
+        val pp = phrasePage
+        if (pp != null && word == null) {
+            com.wordlens.app.ui.reader.PhraseListScreen(
+                word = pp.word,
+                phrases = pp.items,
+                onBack = { vm.closePhrases() },
+                onLookup = { w -> vm.lookupWord(w, null) }
+            )
+        }
+
         WordSheet(
             word = word,
             settings = settings,
