@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -36,6 +37,7 @@ import com.wordlens.app.data.model.DictText
 fun PhraseListScreen(
     word: String,
     phrases: List<Pair<String, String>>,
+    listState: LazyListState,
     onBack: () -> Unit,
     onLookup: (String) -> Unit
 ) {
@@ -81,7 +83,7 @@ fun PhraseListScreen(
                     )
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                     items(phrases, key = { it.first }) { (phrase, zh) ->
                         Column(
                             Modifier

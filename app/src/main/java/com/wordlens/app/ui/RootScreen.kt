@@ -116,6 +116,8 @@ fun RootScreen(
 
     var showHistory by remember { mutableStateOf(false) }
     val phrasePage by vm.phrasePage.collectAsState()
+    // 放在这里而不是页面内部：页面卸载再挂载时滚动位置还在
+    val phraseListState = androidx.compose.foundation.lazy.rememberLazyListState()
     val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
     ) { uri -> uri?.let { vm.exportWordList(it) } }
@@ -386,6 +388,7 @@ fun RootScreen(
             com.wordlens.app.ui.reader.PhraseListScreen(
                 word = pp.word,
                 phrases = pp.items,
+                listState = phraseListState,
                 onBack = { vm.closePhrases() },
                 onLookup = { w -> vm.lookupFromPhrase(w) }
             )
