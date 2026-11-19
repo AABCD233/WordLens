@@ -144,6 +144,18 @@ class DictStore(context: Context) {
             }.getOrDefault(emptyList())
         }
 
+    /** 以该词开头的短语总数（决定要不要显示「查看全部」） */
+    suspend fun phraseCount(word: String): Int = withContext(Dispatchers.IO) {
+        val db = dbOrNull() ?: return@withContext 0
+        val w = word.lowercase()
+        runCatching {
+            db.rawQuery(
+                "SELECT COUNT(*) FROM dict WHERE word LIKE ? AND word<>?",
+                arrayOf("$w %", w)
+            ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        }.getOrDefault(0)
+    }
+
     suspend fun lookup(word: String): DictRow? = withContext(Dispatchers.IO) {
         val db = dbOrNull() ?: return@withContext null
         query(db, "SELECT * FROM dict WHERE word = ? LIMIT 1", arrayOf(word.lowercase()))

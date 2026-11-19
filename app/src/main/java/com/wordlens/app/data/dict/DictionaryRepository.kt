@@ -84,9 +84,10 @@ class DictionaryRepository(
                 inflections = rows.map { DictText.inflections(it.exchange, primary.word) }
                     .firstOrNull { it.isNotEmpty() } ?: emptyList(),
                 // 以该词开头的短语（本地词典自带，纯离线）
-                usages = emptyList(),   // 由调用方（VM）补，Repository 不持有 morph
                 phrases = if (settings.state.value.cardShowPhrases)
-                    dictStore.phrases(primary.word, 8) else emptyList(),
+                    dictStore.phrases(primary.word, 6) else emptyList(),
+                phraseTotal = if (settings.state.value.cardShowPhrases)
+                    dictStore.phraseCount(primary.word) else 0,
                 tags = rows.flatMap { tagNames(it.tag) }.distinct(),
                 collins = rows.maxOfOrNull { it.collins } ?: 0,
                 oxford = rows.any { it.oxford == 1 },

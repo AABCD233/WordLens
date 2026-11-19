@@ -301,7 +301,6 @@ fun SettingsScreen(
             ToggleRow("英文释义", null, settings.cardShowEnMeaning) { c -> onUpdate { it.copy(cardShowEnMeaning = c) } }
             ToggleRow("例句", null, settings.cardShowExamples) { c -> onUpdate { it.copy(cardShowExamples = c) } }
             ToggleRow("词组", "本地词典里以这个词开头的短语", settings.cardShowPhrases) { c -> onUpdate { it.copy(cardShowPhrases = c) } }
-            ToggleRow("用法", "动词的句型，来自 VerbNet", settings.cardShowUsage) { c -> onUpdate { it.copy(cardShowUsage = c) } }
             ToggleRow("词根词缀", null, settings.cardShowRoot) { c -> onUpdate { it.copy(cardShowRoot = c) } }
             ToggleRow("同根词", null, settings.cardShowFamily) { c -> onUpdate { it.copy(cardShowFamily = c) } }
             ToggleRow("词形变化", "过去式、复数这类", settings.cardShowForms) { c -> onUpdate { it.copy(cardShowForms = c) } }

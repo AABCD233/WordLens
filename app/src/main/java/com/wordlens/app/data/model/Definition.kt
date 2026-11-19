@@ -42,8 +42,8 @@ data class Definition(
     val audioUrl: String? = null,
     /** 本地词典里以该词开头的短语：look after / look at … */
     val phrases: List<Pair<String, String>> = emptyList(),
-    /** VerbNet 的动词句法帧：模板 + 例句 */
-    val usages: List<VerbUsage> = emptyList(),
+    /** 短语总数（比 phrases 多就说明还有，显示「查看全部」） */
+    val phraseTotal: Int = 0,
     /** 双语例句（有道在线补的，需要联网） */
     val examples: List<DefExample> = emptyList(),
     /** 该词形的原形（和 lemma 不同时才非空），供卡片上「原形」入口跳转 */
@@ -82,11 +82,3 @@ data class DictRow(
     val freq: Int
 )
 
-/** 一条动词用法：句法帧 + 真实例句（来自 VerbNet） */
-data class VerbUsage(
-    /** 人话模板，如 "V + 人 + with + 事" */
-    val template: String,
-    /** 原始帧名，如 "NP V NP PP.theme" */
-    val frame: String,
-    val example: String
-)

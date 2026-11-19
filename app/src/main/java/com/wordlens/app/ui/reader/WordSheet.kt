@@ -68,6 +68,7 @@ fun WordSheet(
     onTranslateExample: (String) -> Unit,
     onEditNote: () -> Unit,
     onLookupWord: (String) -> Unit,
+    onOpenPhrases: () -> Unit,
     onCopy: (String) -> Unit
 ) {
     // 关键：用 Dialog 而不是"画在同一层的 Box"。
@@ -128,6 +129,7 @@ fun WordSheet(
                         onSave = onSave,
                         alreadySaved = alreadySaved,
                         onAiExplain = onAiExplain,
+                        onOpenPhrases = onOpenPhrases,
                         onTranslateExample = onTranslateExample,
                         onEditNote = onEditNote,
                         onLookupWord = onLookupWord,
@@ -178,6 +180,7 @@ private fun DefinitionBody(
     onTranslateExample: (String) -> Unit,
     onEditNote: () -> Unit,
     onLookupWord: (String) -> Unit,
+    onOpenPhrases: () -> Unit,
     onCopy: (String) -> Unit,
     alreadySaved: Boolean = false
 ) {
@@ -416,29 +419,16 @@ private fun DefinitionBody(
                 )
             }
         }
-    }
-
-    // 用法：VerbNet 的动词句法帧
-    if (settings.cardShowUsage && def.usages.isNotEmpty()) {
-        Spacer(Modifier.height(12.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        Spacer(Modifier.height(8.dp))
-        SectionTitle("用法")
-        def.usages.forEach { u ->
-            Column(Modifier.padding(vertical = 3.dp)) {
-                Text(
-                    u.template,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                if (u.example.isNotBlank()) {
-                    Text(
-                        u.example,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+        if (def.phraseTotal > def.phrases.size) {
+            Text(
+                "查看全部 ${def.phraseTotal} 条",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { onOpenPhrases() }
+                    .padding(vertical = 5.dp, horizontal = 2.dp)
+            )
         }
     }
 

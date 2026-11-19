@@ -185,6 +185,25 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private val _downloading = MutableStateFlow(false)
     val downloading: StateFlow<Boolean> = _downloading.asStateFlow()
 
+    /** 词组二级页：当前词 + 全部词组 */
+    data class PhrasePage(val word: String, val items: List<Pair<String, String>>)
+
+    private val _phrasePage = MutableStateFlow<PhrasePage?>(null)
+    val phrasePage: StateFlow<PhrasePage?> = _phrasePage.asStateFlow()
+
+    /** 打开「查看全部词组」：重新查一次，上限放宽 */
+    fun openPhrases(word: String) {
+        scope.launch {
+            val items = runCatching { app.dictStore.phrases(word.lowercase(), 300) }
+                .getOrDefault(emptyList())
+            _phrasePage.value = PhrasePage(word, items)
+        }
+    }
+
+    fun closePhrases() {
+        _phrasePage.value = null
+    }
+
     /** 下载进度 0f–1f；null 表示不知道总量 */
     private val _downloadProgress = MutableStateFlow<Float?>(null)
     val downloadProgress: StateFlow<Float?> = _downloadProgress.asStateFlow()
@@ -442,12 +461,9 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
             val lemma = def.lemma.ifBlank { raw }
             val deriv = runCatching { app.morph.derivatives(lemma) }.getOrDefault(emptyList())
             val morph = runCatching { app.morph.morphology(lemma) }.getOrDefault(emptyList())
-            val usages = if (settings.value.cardShowUsage) {
-                runCatching { app.morph.usages(lemma) }.getOrDefault(emptyList())
-            } else emptyList()
             _word.value = _word.value.copy(
                 loading = false,
-                definition = def.copy(usages = usages),
+                definition = def,
                 query = raw,
                 derivatives = deriv,
                 morphology = morph

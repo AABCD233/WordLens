@@ -115,6 +115,7 @@ fun RootScreen(
     }
 
     var showHistory by remember { mutableStateOf(false) }
+    val phrasePage by vm.phrasePage.collectAsState()
     val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
     ) { uri -> uri?.let { vm.exportWordList(it) } }
@@ -154,6 +155,19 @@ fun RootScreen(
     BackHandler(enabled = !reviewing && !readerVisible && tab != Tab.Camera) { tab = Tab.Camera }
 
     when {
+        phrasePage != null -> {
+            androidx.activity.compose.BackHandler(enabled = true) { vm.closePhrases() }
+            com.wordlens.app.ui.reader.PhraseListScreen(
+                word = phrasePage!!.word,
+                phrases = phrasePage!!.items,
+                onBack = { vm.closePhrases() },
+                onLookup = { w ->
+                    vm.closePhrases()
+                    vm.lookupWord(w, null)
+                }
+            )
+        }
+
         showHistory -> {
             // 全面屏返回手势：先回拍照页，而不是直接退到桌面
             androidx.activity.compose.BackHandler(enabled = true) { showHistory = false }
@@ -372,6 +386,7 @@ fun RootScreen(
             onTranslateExample = { example -> vm.translateExample(example) },
             onEditNote = { noteWord = word.definition?.lemma?.ifBlank { null } ?: word.query },
             onLookupWord = { w -> vm.lookupWord(w, word.sentence) },
+            onOpenPhrases = { vm.openPhrases(word.definition?.lemma?.ifBlank { null } ?: word.query) },
             onCopy = { text ->
                 clipboard.setText(AnnotatedString(text))
                 vm.toast("已复制")

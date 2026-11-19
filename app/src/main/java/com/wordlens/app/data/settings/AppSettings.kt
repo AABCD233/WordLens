@@ -43,7 +43,6 @@ data class Settings(
     val cardShowEnMeaning: Boolean = true,
     val cardShowExamples: Boolean = true,
     val cardShowPhrases: Boolean = true,
-    val cardShowUsage: Boolean = true,
     val cardShowRoot: Boolean = true,
     val cardShowFamily: Boolean = true,
     val cardShowForms: Boolean = true,
@@ -101,7 +100,6 @@ class AppSettings(context: Context) {
         cardShowEnMeaning = prefs.getBoolean(K_C_EN, true),
         cardShowExamples = prefs.getBoolean(K_C_EX, true),
         cardShowPhrases = prefs.getBoolean(K_C_PHRASE, true),
-        cardShowUsage = prefs.getBoolean(K_C_USAGE, true),
         cardShowRoot = prefs.getBoolean(K_C_ROOT, true),
         cardShowFamily = prefs.getBoolean(K_C_FAMILY, true),
         cardShowForms = prefs.getBoolean(K_C_FORMS, true),
@@ -142,7 +140,6 @@ class AppSettings(context: Context) {
             putBoolean(K_C_EN, next.cardShowEnMeaning)
             putBoolean(K_C_EX, next.cardShowExamples)
             putBoolean(K_C_PHRASE, next.cardShowPhrases)
-            putBoolean(K_C_USAGE, next.cardShowUsage)
             putBoolean(K_C_ROOT, next.cardShowRoot)
             putBoolean(K_C_FAMILY, next.cardShowFamily)
             putBoolean(K_C_FORMS, next.cardShowForms)
@@ -194,7 +191,6 @@ class AppSettings(context: Context) {
         const val K_C_EN = "card_en"
         const val K_C_EX = "card_examples"
         const val K_C_PHRASE = "card_phrases"
-        const val K_C_USAGE = "card_usage"
         const val K_C_ROOT = "card_root"
         const val K_C_FAMILY = "card_family"
         const val K_C_FORMS = "card_forms"

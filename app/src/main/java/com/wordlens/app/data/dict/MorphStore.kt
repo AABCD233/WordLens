@@ -1,7 +1,6 @@
 package com.wordlens.app.data.dict
 
 import android.content.Context
-import com.wordlens.app.data.model.VerbUsage
 import android.database.sqlite.SQLiteDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -102,27 +101,6 @@ class MorphStore(private val context: Context) {
                 c.getString(2).orEmpty().split("--").filter { it.isNotBlank() }
                     .forEach { out.add(MorphHint("-$it", "后缀")) }
                 out
-            }
-        }.getOrDefault(emptyList())
-    }
-
-    /**
-     * 动词的句法帧（VerbNet）：assist → "V + 宾语 + doing sth"。
-     * 只覆盖动词，查不到就返回空。
-     */
-    suspend fun usages(word: String): List<VerbUsage> = withContext(Dispatchers.IO) {
-        val d = open() ?: return@withContext emptyList()
-        val w = word.lowercase()
-        runCatching {
-            d.rawQuery(
-                "SELECT template, frame, example FROM verb_frame WHERE word=? LIMIT 4",
-                arrayOf(w)
-            ).use { c ->
-                buildList {
-                    while (c.moveToNext()) {
-                        add(VerbUsage(c.getString(0), c.getString(1), c.getString(2)))
-                    }
-                }
             }
         }.getOrDefault(emptyList())
     }
