@@ -101,6 +101,7 @@ def main():
         CREATE INDEX i_vf ON verb_frame(word);
     """)
     db.executemany("INSERT INTO verb_frame VALUES (?,?,?,?)", rows)
+    db.execute("PRAGMA user_version = 3")   # 结构版本，App 靠它决定要不要重新拷贝
     db.commit()
     db.execute("VACUUM")
     db.close()

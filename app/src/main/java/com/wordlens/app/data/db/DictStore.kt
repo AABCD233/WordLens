@@ -131,7 +131,14 @@ class DictStore(context: Context) {
                     arrayOf("$w %", w, limit.toString())
                 ).use { c ->
                     buildList {
-                        while (c.moveToNext()) add(c.getString(0) to c.getString(1))
+                        while (c.moveToNext()) {
+                            val w = c.getString(0)
+                            val zh = c.getString(1).orEmpty()
+                            // [计] [机] 这类是专业词条，多半是机翻，日常查词用不上
+                            if (zh.isBlank() || zh.contains("[")) continue
+                            if (w.any { it.isDigit() }) continue
+                            add(w to zh)
+                        }
                     }
                 }
             }.getOrDefault(emptyList())

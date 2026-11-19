@@ -24,7 +24,9 @@ class MorphStore(private val context: Context) {
 
     companion object {
         /** 带版本号的文件名：表结构改了换个名字，就不会用到旧的拷贝 */
-        private const val SCHEMA_FILE = "morph-v2.db"
+        private const val SCHEMA_FILE = "morph.db"
+        /** 和 build_verbnet.py 里的 PRAGMA user_version 保持一致 */
+        private const val SCHEMA_VERSION = 3
     }
 
     @Volatile
@@ -38,13 +40,10 @@ class MorphStore(private val context: Context) {
                     file.outputStream().use { out -> input.copyTo(out) }
                 }
             }
-            // 老版本拷过去的是旧结构（没有 seg 表），必须换成新的
+            // 结构变了（新增表/改表）就重新拷贝：用 PRAGMA user_version 判断
             val opened = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
-            val hasSeg = runCatching {
-                opened.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='seg'", null)
-                    .use { it.moveToFirst() }
-            }.getOrDefault(false)
-            if (!hasSeg) {
+            val version = runCatching { opened.version }.getOrDefault(0)
+            if (version != SCHEMA_VERSION) {
                 opened.close()
                 file.delete()
                 context.assets.open("morph.db").use { input ->

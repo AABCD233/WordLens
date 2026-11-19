@@ -26,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -419,7 +420,9 @@ private fun DefinitionBody(
 
     // 用法：VerbNet 的动词句法帧
     if (settings.cardShowUsage && def.usages.isNotEmpty()) {
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
         SectionTitle("用法")
         def.usages.forEach { u ->
             Column(Modifier.padding(vertical = 3.dp)) {
