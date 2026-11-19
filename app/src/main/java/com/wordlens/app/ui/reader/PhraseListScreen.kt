@@ -27,7 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wordlens.app.data.dict.DictText
+import com.wordlens.app.data.model.DictText
 
 /** 某个词的全部词组（词卡里只放前 6 条，这里看全） */
 @Composable
