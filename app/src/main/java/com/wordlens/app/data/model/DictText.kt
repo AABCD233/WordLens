@@ -184,7 +184,31 @@ object DictText {
      * 同一个词形有多个标签时合并（studied 既是过去式又是过去分词）。
      * `1:` / `2:` 是变形码（值只有 s / c 之类），直接丢掉。
      */
-    fun inflections(exchange: String): List<String> {
+    /**
+     * 中文释义里的词性标记和英文释义对不上时，以英文为准改前缀。
+     * 例：well-being 的 ECDICT 中文写成「a. 安宁的」、英文却是 n，改成 n.。
+     * 只在「只有一行中文 + 只有一个英文词性」时动手，多义词不碰。
+     */
+    fun alignPos(zhLines: List<String>, enMeanings: List<EnMeaning>): List<String> {
+        if (zhLines.size != 1 || enMeanings.size != 1) return zhLines
+        val enPos = enMeanings.first().partOfSpeech
+        if (enPos.isBlank()) return zhLines
+        val line = zhLines.first()
+        val m = Regex("^([a-z]{1,4}\\.)\\s*(.+)$").find(line) ?: return zhLines
+        val zhPos = m.groupValues[1]
+        if (samePos(zhPos, enPos)) return zhLines
+        return listOf(enPos + " " + m.groupValues[2].trim())
+    }
+
+    private fun samePos(a: String, b: String): Boolean {
+        val norm = mapOf("a." to "adj.", "adj." to "adj.", "n." to "n.", "v." to "v.",
+            "vt." to "v.", "vi." to "v.", "adv." to "adv.", "r." to "adv.")
+        val x = norm[a.lowercase()] ?: a.lowercase()
+        val y = norm[b.lowercase()] ?: b.lowercase()
+        return x == y
+    }
+
+    fun inflections(exchange: String, headword: String = ""): List<String> {
         if (exchange.isBlank()) return emptyList()
         val labelsByValue = LinkedHashMap<String, MutableList<String>>()
         for (pair in exchange.split('/', '|')) {
@@ -196,8 +220,11 @@ object DictText {
             val label = EXCHANGE_LABEL[key] ?: continue
             labelsByValue.getOrPut(value) { ArrayList() } += label
         }
-        return labelsByValue.map { (value, labels) ->
-            labels.distinct().joinToString(" / ") + " " + value
-        }
+        // 词形和本词一模一样没有意义（well-being 会被标成「现在分词 well-being」）
+        val head = headword.trim().lowercase()
+        return labelsByValue.filterKeys { head.isEmpty() || it.lowercase() != head }
+            .map { (value, labels) ->
+                labels.distinct().joinToString(" / ") + " " + value
+            }
     }
 }

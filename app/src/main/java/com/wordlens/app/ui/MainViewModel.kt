@@ -943,19 +943,20 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     }
 
     /** 检查更新：查到新版本就提示，并给出 Release 地址 */
-    fun checkUpdate() {
+    /** @param silent 启动时自动检查：没新版本就完全不出声 */
+    fun checkUpdate(silent: Boolean = false) {
         scope.launch {
-            _messages.tryEmit("正在检查更新…")
+            if (!silent) _messages.tryEmit("正在检查更新…")
             val r = app.updates.check()
             r.onSuccess { latest ->
                 if (latest.newer) {
                     _update.value = latest
                     _lastReleaseUrl = latest.url
-                } else {
+                } else if (!silent) {
                     _messages.tryEmit("已是最新版本（${com.wordlens.app.BuildConfig.VERSION_NAME}）")
                 }
             }.onFailure {
-                _messages.tryEmit("检查更新失败：${it.message ?: "网络不通"}")
+                if (!silent) _messages.tryEmit("检查更新失败：${it.message ?: "网络不通"}")
             }
         }
     }

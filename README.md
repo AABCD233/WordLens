@@ -17,7 +17,7 @@
 
 ## 下载安装
 
-**到 [Releases](https://github.com/AABCD233/WordLens/releases) 下载最新的 `apk文件`，点开安装即可。**
+**到 [Releases](https://github.com/AABCD233/WordLens/releases) 下载最新的 `app-debug.apk`，点开安装即可。**
 
 - 系统要求：Android 8.0 及以上（minSdk 26）
 - 首次安装需要在系统里允许「安装未知来源应用」

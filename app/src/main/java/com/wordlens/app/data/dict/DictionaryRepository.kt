@@ -73,13 +73,16 @@ class DictionaryRepository(
                 // 音标优先用「点中的那个词形」的，cramming 要读 /ˈkræmɪŋ/ 而不是 cram
                 phonetic = (exactRow?.phonetic?.ifBlank { null }
                     ?: rows.firstNotNullOfOrNull { it.phonetic.ifBlank { null } }),
-                zhLines = DictText.zhLines(primary.translation).distinct(),
+                zhLines = DictText.alignPos(
+                    DictText.zhLines(primary.translation).distinct(),
+                    mergeEnMeanings(rows.map { DictText.enMeanings(it.definition) })
+                ),
                 baseZhLines = if (baseRow != null) {
                     DictText.zhLines(baseRow.translation).distinct()
                 } else emptyList(),
                 enMeanings = mergeEnMeanings(rows.map { DictText.enMeanings(it.definition) }),
-                inflections = rows.map { DictText.inflections(it.exchange) }.firstOrNull { it.isNotEmpty() }
-                    ?: emptyList(),
+                inflections = rows.map { DictText.inflections(it.exchange, primary.word) }
+                    .firstOrNull { it.isNotEmpty() } ?: emptyList(),
                 tags = rows.flatMap { tagNames(it.tag) }.distinct(),
                 collins = rows.maxOfOrNull { it.collins } ?: 0,
                 oxford = rows.any { it.oxford == 1 },

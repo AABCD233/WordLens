@@ -75,6 +75,8 @@ fun RootScreen(
     val savedKeys by vm.savedKeys.collectAsState()
     val updateInfo by vm.update.collectAsState()
     LaunchedEffect(Unit) {
+        // 启动时静默检查一次更新（设置里可关）
+        if (vm.settings.value.autoCheckUpdate) vm.checkUpdate(silent = true)
         vm.refreshSavedKeys()
         // 上次下载的安装包已经没用了，启动时清掉
         vm.clearUpdateCache()

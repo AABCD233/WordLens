@@ -451,6 +451,11 @@ fun SettingsScreen(
             OutlinedButton(onClick = onCheckUpdate, modifier = Modifier.fillMaxWidth()) {
                 Text("检查更新")
             }
+            ToggleRow(
+                "启动时自动检查更新",
+                "每次打开 App 静默查一次，有新版本才提示；没网或已是最新都不打扰",
+                settings.autoCheckUpdate
+            ) { checked -> onUpdate { it.copy(autoCheckUpdate = checked) } }
             Spacer(Modifier.height(10.dp))
             Hint("词素切分来自 CityLex（经 morphoneme 整理），同根词来自 Morpheme Lexicon（morphemelexicon.com），均为非商业引用。若引用方式不妥请联系我们，会立即调整或移除并致歉。")
 
