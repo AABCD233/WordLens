@@ -191,6 +191,10 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private val _phrasePage = MutableStateFlow<PhrasePage?>(null)
     val phrasePage: StateFlow<PhrasePage?> = _phrasePage.asStateFlow()
 
+    /** 点词组去查词时，先把词组页藏起来，看到的是词卡；关掉词卡再露出来 */
+    private val _phraseHidden = MutableStateFlow(false)
+    val phraseHidden: StateFlow<Boolean> = _phraseHidden.asStateFlow()
+
     /** 打开「查看全部词组」：重新查一次，上限放宽 */
     fun openPhrases(word: String) {
         scope.launch {
@@ -202,7 +206,10 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun closePhrases() {
         _phrasePage.value = null
+        _phraseHidden.value = false
     }
+
+    fun hidePhrasesForLookup() { _phraseHidden.value = true }
 
     /** 下载进度 0f–1f；null 表示不知道总量 */
     private val _downloadProgress = MutableStateFlow<Float?>(null)
@@ -541,6 +548,7 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun dismissWord() {
         _word.value = WordUi()
+        _phraseHidden.value = false     // 关掉词卡，回到之前的词组列表
     }
 
     fun speakCurrent() {

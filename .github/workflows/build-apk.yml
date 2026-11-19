@@ -34,7 +34,15 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Build release APK
-        run: ./gradlew :app:assembleRelease --stacktrace
+        run: |
+          # tag 构建 = 发版，四个架构都编；日常 push 只编 arm64（体积小、下载快）
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "发版构建：编译四个架构"
+            ./gradlew :app:assembleRelease --stacktrace
+          else
+            echo "测试构建：只编译 arm64-v8a"
+            ./gradlew :app:assembleRelease -PonlyArm64=true --stacktrace
+          fi
 
       - name: Collect APK
         run: |

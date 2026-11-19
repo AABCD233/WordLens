@@ -12,15 +12,20 @@ android {
         applicationId = "com.wordlens.app"
         minSdk = 26          // Android 8.0
         targetSdk = 36
-        versionCode = 39
-        versionName = "2.8.4"
+        versionCode = 40
+        versionName = "2.8.5"
         vectorDrawables { useSupportLibrary = true }
         // 按 ABI 拆包：每个架构一个 APK，体积各自小很多
         splits {
             abi {
                 isEnable = true
                 reset()
-                include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+                // 日常测试用 -PonlyArm64=true 只编一个包，省时间也省下载流量；
+                // 发版构建不带这个参数，四个架构都编
+                val onlyArm64 = (findProperty("onlyArm64") as String?)?.toBoolean() ?: false
+                val abis = if (onlyArm64) listOf("arm64-v8a")
+                else listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+                include(*abis.toTypedArray())
                 isUniversalApk = false
             }
         }

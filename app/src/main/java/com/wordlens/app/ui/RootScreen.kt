@@ -116,6 +116,7 @@ fun RootScreen(
 
     var showHistory by remember { mutableStateOf(false) }
     val phrasePage by vm.phrasePage.collectAsState()
+    val phraseHidden by vm.phraseHidden.collectAsState()
     val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
     ) { uri -> uri?.let { vm.exportWordList(it) } }
@@ -362,17 +363,6 @@ fun RootScreen(
 
     // 词卡：所有页面共用（拍照阅读、直接查词都能弹）
     if (word.visible) {
-        // 词组二级页：和词卡同一层级（都是 Dialog）。查词时先让出，关掉词卡再回来
-        val pp = phrasePage
-        if (pp != null && word == null) {
-            com.wordlens.app.ui.reader.PhraseListScreen(
-                word = pp.word,
-                phrases = pp.items,
-                onBack = { vm.closePhrases() },
-                onLookup = { w -> vm.lookupWord(w, null) }
-            )
-        }
-
         WordSheet(
             word = word,
             settings = settings,
@@ -390,6 +380,20 @@ fun RootScreen(
                 vm.toast("已复制")
             }
         )
+
+        // 词组二级页：写在词卡之后，窗口才会叠在词卡上面
+        val pp = phrasePage
+        if (pp != null && !phraseHidden) {
+            com.wordlens.app.ui.reader.PhraseListScreen(
+                word = pp.word,
+                phrases = pp.items,
+                onBack = { vm.closePhrases() },
+                onLookup = { w ->
+                    vm.hidePhrasesForLookup()
+                    vm.lookupWord(w, null)
+                }
+            )
+        }
     }
 
     noteWord?.let { w ->
