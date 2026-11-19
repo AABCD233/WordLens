@@ -191,9 +191,8 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
     private val _phrasePage = MutableStateFlow<PhrasePage?>(null)
     val phrasePage: StateFlow<PhrasePage?> = _phrasePage.asStateFlow()
 
-    /** 点词组去查词时，先把词组页藏起来，看到的是词卡；关掉词卡再露出来 */
-    private val _phraseHidden = MutableStateFlow(false)
-    val phraseHidden: StateFlow<Boolean> = _phraseHidden.asStateFlow()
+    /** 从词组页点进去查词时，记下这一页，关掉词卡后原样还回去 */
+    private var phraseReturn: PhrasePage? = null
 
     /** 打开「查看全部词组」：重新查一次，上限放宽 */
     fun openPhrases(word: String) {
@@ -206,10 +205,15 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun closePhrases() {
         _phrasePage.value = null
-        _phraseHidden.value = false
+        phraseReturn = null
     }
 
-    fun hidePhrasesForLookup() { _phraseHidden.value = true }
+    /** 词组页里点某条：关掉列表去查词，关词卡时再回来 */
+    fun lookupFromPhrase(word: String) {
+        phraseReturn = _phrasePage.value
+        _phrasePage.value = null
+        lookupWord(word, null)
+    }
 
     /** 下载进度 0f–1f；null 表示不知道总量 */
     private val _downloadProgress = MutableStateFlow<Float?>(null)
@@ -548,7 +552,9 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
 
     fun dismissWord() {
         _word.value = WordUi()
-        _phraseHidden.value = false     // 关掉词卡，回到之前的词组列表
+        // 只有「从词组点进来」的那次才把列表还回去，避免在别处查词时冒出旧列表
+        phraseReturn?.let { _phrasePage.value = it }
+        phraseReturn = null
     }
 
     fun speakCurrent() {
