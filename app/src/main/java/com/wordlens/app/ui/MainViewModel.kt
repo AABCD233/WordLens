@@ -442,9 +442,12 @@ class MainViewModel(private val app: AppContainer) : ViewModel() {
             val lemma = def.lemma.ifBlank { raw }
             val deriv = runCatching { app.morph.derivatives(lemma) }.getOrDefault(emptyList())
             val morph = runCatching { app.morph.morphology(lemma) }.getOrDefault(emptyList())
+            val usages = if (settings.value.cardShowUsage) {
+                runCatching { app.morph.usages(lemma) }.getOrDefault(emptyList())
+            } else emptyList()
             _word.value = _word.value.copy(
                 loading = false,
-                definition = def,
+                definition = def.copy(usages = usages),
                 query = raw,
                 derivatives = deriv,
                 morphology = morph

@@ -116,6 +116,27 @@ class DictStore(context: Context) {
 
     private fun dbOrNull(): SQLiteDatabase? = handle
 
+    /**
+     * 以该词开头的短语：look -> look after / look at / look for。
+     * 本地词典里收了 800 多条常用词组，直接前缀匹配就能用。
+     */
+    suspend fun phrases(word: String, limit: Int = 8): List<Pair<String, String>> =
+        withContext(Dispatchers.IO) {
+            val db = dbOrNull() ?: return@withContext emptyList()
+            val w = word.lowercase()
+            runCatching {
+                db.rawQuery(
+                    "SELECT word, translation FROM dict WHERE word LIKE ? AND word<>? " +
+                        "ORDER BY length(word) LIMIT ?",
+                    arrayOf("$w %", w, limit.toString())
+                ).use { c ->
+                    buildList {
+                        while (c.moveToNext()) add(c.getString(0) to c.getString(1))
+                    }
+                }
+            }.getOrDefault(emptyList())
+        }
+
     suspend fun lookup(word: String): DictRow? = withContext(Dispatchers.IO) {
         val db = dbOrNull() ?: return@withContext null
         query(db, "SELECT * FROM dict WHERE word = ? LIMIT 1", arrayOf(word.lowercase()))

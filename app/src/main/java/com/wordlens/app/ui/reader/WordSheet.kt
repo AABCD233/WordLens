@@ -264,6 +264,7 @@ private fun DefinitionBody(
         }
 
         // 我的释义放在这儿，跟词典释义挨着
+        if (settings.cardShowUserNote) {
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             SectionTitle("我的释义")
@@ -292,6 +293,7 @@ private fun DefinitionBody(
                 )
             }
         }
+        }
 
     } else if (def.zhMachine != null) {
         SectionTitle("机器翻译")
@@ -310,7 +312,7 @@ private fun DefinitionBody(
     }
 
     // 英文释义 + 例句
-    if (def.enMeanings.isNotEmpty()) {
+    if (settings.cardShowEnMeaning && def.enMeanings.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
         SectionTitle("英文释义")
         def.enMeanings.take(3).forEach { meaning ->
@@ -349,7 +351,7 @@ private fun DefinitionBody(
     }
 
     // 双语例句（有道在线补的）
-    if (def.examples.isNotEmpty()) {
+    if (settings.cardShowExamples && def.examples.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
         SectionTitle("例句")
         def.examples.take(4).forEachIndexed { index, ex ->
@@ -385,8 +387,60 @@ private fun DefinitionBody(
         }
     }
 
+    // 词组：本地词典里以该词开头的常用短语
+    if (settings.cardShowPhrases && def.phrases.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("词组")
+        def.phrases.forEach { (phrase, zh) ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { onLookupWord(phrase) }
+                    .padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    phrase,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    zh.lineSequence().firstOrNull().orEmpty().take(30),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+
+    // 用法：VerbNet 的动词句法帧
+    if (settings.cardShowUsage && def.usages.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        SectionTitle("用法")
+        def.usages.forEach { u ->
+            Column(Modifier.padding(vertical = 3.dp)) {
+                Text(
+                    u.template,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                if (u.example.isNotBlank()) {
+                    Text(
+                        u.example,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+
     // 词根词缀（离线，标注"可能相关"，只给高置信度匹配）
-    if (word.morphology.isNotEmpty()) {
+    if (settings.cardShowRoot && word.morphology.isNotEmpty()) {
         Spacer(Modifier.height(10.dp))
         SectionTitle("词根词缀")
         word.morphology.forEach { hint ->
@@ -407,7 +461,7 @@ private fun DefinitionBody(
     }
 
     // 同族派生词：点一下直接查它
-    if (word.derivatives.isNotEmpty()) {
+    if (settings.cardShowFamily && word.derivatives.isNotEmpty()) {
         Spacer(Modifier.height(10.dp))
         SectionTitle("同根词")
         FlowRow(
@@ -431,7 +485,7 @@ private fun DefinitionBody(
     }
 
     // 词形变化：每个都能点进去查（应对「只认识变形、不认识原形」的场景）
-    if (def.inflections.isNotEmpty()) {
+    if (settings.cardShowForms && def.inflections.isNotEmpty()) {
         Spacer(Modifier.height(10.dp))
         SectionTitle("词形（可点）")
         FlowRow(

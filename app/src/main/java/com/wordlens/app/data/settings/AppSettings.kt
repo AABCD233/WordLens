@@ -38,6 +38,16 @@ data class Settings(
     val azureRegion: String = "global",
     /** 当前使用的扩展词典包 id；空串 = 内置核心词典 */
     val activePackId: String = "",
+    // ---- 词卡显示哪些区块（单词+音标+中文释义固定显示，不可关）----
+    val cardShowUserNote: Boolean = true,
+    val cardShowEnMeaning: Boolean = true,
+    val cardShowExamples: Boolean = true,
+    val cardShowPhrases: Boolean = true,
+    val cardShowUsage: Boolean = true,
+    val cardShowRoot: Boolean = true,
+    val cardShowFamily: Boolean = true,
+    val cardShowForms: Boolean = true,
+
     /** 每次打开 App 自动检查更新 */
     val autoCheckUpdate: Boolean = true,
     /** 底栏常驻（不随滚动隐藏） */
@@ -87,6 +97,14 @@ class AppSettings(context: Context) {
         azureKey = prefs.getString(K_AZ_KEY, "") ?: "",
         azureRegion = prefs.getString(K_AZ_REGION, "global") ?: "global",
         activePackId = prefs.getString(K_PACK, "") ?: "",
+        cardShowUserNote = prefs.getBoolean(K_C_NOTE, true),
+        cardShowEnMeaning = prefs.getBoolean(K_C_EN, true),
+        cardShowExamples = prefs.getBoolean(K_C_EX, true),
+        cardShowPhrases = prefs.getBoolean(K_C_PHRASE, true),
+        cardShowUsage = prefs.getBoolean(K_C_USAGE, true),
+        cardShowRoot = prefs.getBoolean(K_C_ROOT, true),
+        cardShowFamily = prefs.getBoolean(K_C_FAMILY, true),
+        cardShowForms = prefs.getBoolean(K_C_FORMS, true),
         autoCheckUpdate = prefs.getBoolean(K_AUTO_UPDATE, true),
         pinBottomBar = prefs.getBoolean(K_PIN_BAR, false),
         floatingButton = prefs.getBoolean(K_FLOATING, false),
@@ -120,6 +138,14 @@ class AppSettings(context: Context) {
             putString(K_AZ_KEY, next.azureKey)
             putString(K_AZ_REGION, next.azureRegion)
             putString(K_PACK, next.activePackId)
+            putBoolean(K_C_NOTE, next.cardShowUserNote)
+            putBoolean(K_C_EN, next.cardShowEnMeaning)
+            putBoolean(K_C_EX, next.cardShowExamples)
+            putBoolean(K_C_PHRASE, next.cardShowPhrases)
+            putBoolean(K_C_USAGE, next.cardShowUsage)
+            putBoolean(K_C_ROOT, next.cardShowRoot)
+            putBoolean(K_C_FAMILY, next.cardShowFamily)
+            putBoolean(K_C_FORMS, next.cardShowForms)
             putBoolean(K_AUTO_UPDATE, next.autoCheckUpdate)
             putBoolean(K_PIN_BAR, next.pinBottomBar)
             putBoolean(K_FLOATING, next.floatingButton)
@@ -164,6 +190,14 @@ class AppSettings(context: Context) {
         const val K_FLOATING = "floating_button"
         const val K_PIN_BAR = "pin_bottom_bar"
         const val K_AUTO_UPDATE = "auto_check_update"
+        const val K_C_NOTE = "card_note"
+        const val K_C_EN = "card_en"
+        const val K_C_EX = "card_examples"
+        const val K_C_PHRASE = "card_phrases"
+        const val K_C_USAGE = "card_usage"
+        const val K_C_ROOT = "card_root"
+        const val K_C_FAMILY = "card_family"
+        const val K_C_FORMS = "card_forms"
         const val K_DISCLAIMER = "disclaimer_accepted"
     }
 }

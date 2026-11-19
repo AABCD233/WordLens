@@ -295,6 +295,18 @@ fun SettingsScreen(
             Hint("首次使用需要系统权限「显示在其他应用上层」。面板顶栏可拖动，右下角可缩放，点 ✕ 会缩成小球。")
         }
 
+        SectionCard(title = "词卡显示", subtitle = "选择词卡里显示哪些内容", defaultExpanded = false) {
+            Hint("单词、音标、中文释义始终显示，下面这些可以按需要关掉。关掉只是不显示，不影响查词。")
+            ToggleRow("我的释义", null, settings.cardShowUserNote) { c -> onUpdate { it.copy(cardShowUserNote = c) } }
+            ToggleRow("英文释义", null, settings.cardShowEnMeaning) { c -> onUpdate { it.copy(cardShowEnMeaning = c) } }
+            ToggleRow("例句", null, settings.cardShowExamples) { c -> onUpdate { it.copy(cardShowExamples = c) } }
+            ToggleRow("词组", "本地词典里以这个词开头的短语", settings.cardShowPhrases) { c -> onUpdate { it.copy(cardShowPhrases = c) } }
+            ToggleRow("用法", "动词的句型，来自 VerbNet", settings.cardShowUsage) { c -> onUpdate { it.copy(cardShowUsage = c) } }
+            ToggleRow("词根词缀", null, settings.cardShowRoot) { c -> onUpdate { it.copy(cardShowRoot = c) } }
+            ToggleRow("同根词", null, settings.cardShowFamily) { c -> onUpdate { it.copy(cardShowFamily = c) } }
+            ToggleRow("词形变化", "过去式、复数这类", settings.cardShowForms) { c -> onUpdate { it.copy(cardShowForms = c) } }
+        }
+
         SectionCard(title = "外观", subtitle = "主题色 · 沉浸式布局", defaultExpanded = false) {
             ToggleRow(
                 "跟随系统主题色",

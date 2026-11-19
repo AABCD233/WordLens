@@ -106,6 +106,27 @@ class MorphStore(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    /**
+     * 动词的句法帧（VerbNet）：assist → "V + 宾语 + doing sth"。
+     * 只覆盖动词，查不到就返回空。
+     */
+    suspend fun usages(word: String): List<VerbUsage> = withContext(Dispatchers.IO) {
+        val d = open() ?: return@withContext emptyList()
+        val w = word.lowercase()
+        runCatching {
+            d.rawQuery(
+                "SELECT template, frame, example FROM verb_frame WHERE word=? LIMIT 4",
+                arrayOf(w)
+            ).use { c ->
+                buildList {
+                    while (c.moveToNext()) {
+                        add(VerbUsage(c.getString(0), c.getString(1), c.getString(2)))
+                    }
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
     /** 去掉屈折后缀后还在同一词族里，就当它是屈折变化而不是派生词 */
     private fun isInflection(form: String, family: Set<String>): Boolean {
         for (suf in listOf("iest", "ier", "est", "ing", "ed", "es", "er", "s", "d")) {

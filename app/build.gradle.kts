@@ -12,8 +12,8 @@ android {
         applicationId = "com.wordlens.app"
         minSdk = 26          // Android 8.0
         targetSdk = 36
-        versionCode = 34
-        versionName = "2.7.1"
+        versionCode = 35
+        versionName = "2.8.0"
         vectorDrawables { useSupportLibrary = true }
         // 按 ABI 拆包：每个架构一个 APK，体积各自小很多
         splits {
