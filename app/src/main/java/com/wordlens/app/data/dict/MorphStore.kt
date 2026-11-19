@@ -1,6 +1,7 @@
 package com.wordlens.app.data.dict
 
 import android.content.Context
+import com.wordlens.app.data.model.VerbUsage
 import android.database.sqlite.SQLiteDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
